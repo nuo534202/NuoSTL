@@ -83,4 +83,4 @@ The project will also add some additional practical components that is not inclu
 
 ## License
 
-NuoSTL is for learning and practice purpose now, so it is under MIT License. Feel free to use, modify, and distribute it.
+NuoSTL is for learning and practice purpose now, so it is under [MIT License](LICENSE). Feel free to use, modify, and distribute it.
