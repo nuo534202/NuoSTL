@@ -23,6 +23,8 @@ set(CORE ${DATA_TYPES})
 # set(ADD)
 set(NUOSTL ${CORE})
 
-add_subdirectory(${PROJECT_SOURCE_DIR}/tests)
+add_library(NuoSTLLib SHARED ${NUOSTL})
+
+# add_subdirectory(${PROJECT_SOURCE_DIR}/tests)
 
 # add_executable(test ${NUOSTL})
