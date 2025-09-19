@@ -57,7 +57,7 @@
 - [ ] nuo_accumulate – Similar to `std::accumulate`  
 - [ ] nuo_binary_search – Similar to `std::binary_search`  
 - [ ] nuo_merge – Similar to `std::merge`  
-- [ ] nuo_max / nuo_min (DDL: 9.21)  
+- [ ] nuo_max / nuo_min (DDL: 9.28)  
 - [ ] nuo_for_each – Similar to `std::for_each`  
 
 ### Function Objects (Functors)
