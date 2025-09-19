@@ -3,26 +3,28 @@
 #include <math.h>
 #include <string.h>
 
+namespace nuostl {
+
 /* Constructor */
-nuostl::nuo_string::nuo_string() {
+nuo_string::nuo_string() {
     s = new char[1];
     siz = 0, capacity = 1;
 }
 
-nuostl::nuo_string::nuo_string(char c) {
+nuo_string::nuo_string(char c) {
     s = new char[1];
     s[0] = c;
     siz = capacity = 1;
 }
 
-nuostl::nuo_string::nuo_string(char * _s) {
+nuo_string::nuo_string(char * _s) {
     siz = strlen(_s);
     capacity = 1ull << (size_t)ceil(log2(siz));
     s = new char[capacity];
     strncpy(s, _s, siz);
 }
 
-nuostl::nuo_string::nuo_string(char * _s, size_t n) {
+nuo_string::nuo_string(char * _s, size_t n) {
     siz = strlen(_s) * n;
     capacity = 1ull << (size_t)ceil(log2(siz));
     s = new char[capacity];
@@ -31,7 +33,7 @@ nuostl::nuo_string::nuo_string(char * _s, size_t n) {
 }
 
 /* Destructor */
-nuostl::nuo_string::~nuo_string() {
+nuo_string::~nuo_string() {
     siz = capacity = 0;
     delete s;
     s = nullptr;
@@ -40,11 +42,11 @@ nuostl::nuo_string::~nuo_string() {
 /* ToDo: operator */
 
 /* expand space */
-void nuostl::nuo_string::expand_space() {
+void nuo_string::expand_space() {
     expand_space(capacity << 1);
 }
 
-void nuostl::nuo_string::expand_space(size_t new_size) {
+void nuo_string::expand_space(size_t new_size) {
     /* restore current string */
     char _s[capacity];
     strncpy(_s, s, capacity);
@@ -61,7 +63,7 @@ void nuostl::nuo_string::expand_space(size_t new_size) {
 /* Todo: reduce space */
 
 /* push back */
-void nuostl::nuo_string::push_back(char c) {
+void nuo_string::push_back(char c) {
     if (siz >= capacity)
         expand_space();
     
@@ -69,7 +71,7 @@ void nuostl::nuo_string::push_back(char c) {
     siz++;
 }
 
-void nuostl::nuo_string::push_back(char * _s) {
+void nuo_string::push_back(char * _s) {
     if (siz + strlen(_s) > capacity)
         expand_space(1ull << (size_t)(ceil(log2(siz + strlen(_s)))));
 
@@ -77,36 +79,36 @@ void nuostl::nuo_string::push_back(char * _s) {
     siz += strlen(_s);
 }
 
-void nuostl::nuo_string::pop_back() {
+void nuo_string::pop_back() {
     pop_back(1);
 }
 
-void nuostl::nuo_string::pop_back(size_t len) {
+void nuo_string::pop_back(size_t len) {
     if (siz - len <= 0) siz = 0;
     else siz -= len;
 }
 
 /* get the size of string */
-size_t nuostl::nuo_string::size() {
+size_t nuo_string::size() {
     return siz;
 }
 
 /* if string is empty or not */
-bool nuostl::nuo_string::empty() {
+bool nuo_string::empty() {
     return siz == 0;
 }
 /* get the front element */
-char nuostl::nuo_string::front() {
+char nuo_string::front() {
     return s[0];
 }
 
 /* get the back element */
-char nuostl::nuo_string::back() {
+char nuo_string::back() {
     return s[siz - 1];
 }
 
 /* get the index of substr (-1 if not found) */
-int32_t nuostl::nuo_string::strstr(nuo_string& _s) {
+int32_t nuo_string::strstr(nuo_string& _s) {
     size_t len = _s.size() + siz + 1, s_size = _s.size();
     char * tmp_s = new char[len];
     int nxt[len];
@@ -131,9 +133,11 @@ int32_t nuostl::nuo_string::strstr(nuo_string& _s) {
 }
 
 /* get the substring */
-nuostl::nuo_string nuostl::nuo_string::substr(size_t l, size_t r) {
+nuo_string nuo_string::substr(size_t l, size_t r) {
     char * _s = new char[r - l + 1];
     nuostl::nuo_string ans(_s);
     delete _s;
     return ans;
 }
+
+} /* namespace */
