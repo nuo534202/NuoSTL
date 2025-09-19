@@ -10,6 +10,14 @@ namespace nuostl {
         size_t siz;
         size_t capacity;
 
+        /* expand space */
+        void expand_space();
+        void expand_space(size_t new_size);
+
+        /* reduce space */
+        void reduce_space();
+        void reduce_space(size_t new_size);
+
     public:
         char * s;
 
@@ -38,14 +46,6 @@ namespace nuostl {
         bool operator== (const nuo_string& _s) const;
         bool operator> (const nuo_string& _s) const;
         bool operator>= (const nuo_string& _s) const;
-
-        /* expand space */
-        void expand_space();
-        void expand_space(size_t new_size);
-
-        /* reduce space */
-        void reduce_space();
-        void reduce_space(size_t new_size);
 
         /* push back */
         void push_back(char c);

@@ -5,6 +5,29 @@
 
 namespace nuostl {
 
+/* expand space */
+void nuo_string::expand_space() {
+    expand_space(capacity << 1);
+}
+
+void nuo_string::expand_space(size_t new_size) {
+    /* restore current string */
+    char _s[capacity];
+    strncpy(_s, s, capacity);
+
+    /* assign a new space with double size */
+    delete s;
+    s = new char[new_size];
+
+    /* store the string */
+    strncpy(s, _s, capacity);
+    capacity = new_size;
+}
+
+/* Todo: reduce space */
+
+
+
 /* Constructor */
 nuo_string::nuo_string() {
     s = new char[1];
@@ -41,26 +64,7 @@ nuo_string::~nuo_string() {
 
 /* ToDo: operator */
 
-/* expand space */
-void nuo_string::expand_space() {
-    expand_space(capacity << 1);
-}
 
-void nuo_string::expand_space(size_t new_size) {
-    /* restore current string */
-    char _s[capacity];
-    strncpy(_s, s, capacity);
-
-    /* assign a new space with double size */
-    delete s;
-    s = new char[new_size];
-
-    /* store the string */
-    strncpy(s, _s, capacity);
-    capacity = new_size;
-}
-
-/* Todo: reduce space */
 
 /* push back */
 void nuo_string::push_back(char c) {
