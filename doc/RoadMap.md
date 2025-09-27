@@ -4,8 +4,8 @@
 
 ### Data Types
 
-- [ ] nuo_string – Similar to `std::string` (DDL: 9.21)  
-- [ ] nuo_pair – Similar to `std::pair`  
+- [ ] nuo_string – Similar to `std::string` (DDL: TBD)  
+- [x] nuo_pair – Similar to `std::pair`  
 - [ ] nuo_tuple – Similar to `std::tuple`  
 - [ ] nuo_optional – Similar to `std::optional`  
 - [ ] nuo_variant – Similar to `std::variant`  
@@ -57,7 +57,7 @@
 - [ ] nuo_accumulate – Similar to `std::accumulate`  
 - [ ] nuo_binary_search – Similar to `std::binary_search`  
 - [ ] nuo_merge – Similar to `std::merge`  
-- [ ] nuo_max / nuo_min (DDL: 9.28)  
+- [ ] nuo_max / nuo_min (DDL: 9.30)  
 - [ ] nuo_for_each – Similar to `std::for_each`  
 
 ### Function Objects (Functors)
