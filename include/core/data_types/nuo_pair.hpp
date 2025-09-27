@@ -11,14 +11,30 @@ namespace nuostl {
 template<typename T1, typename T2>
 class nuo_pair {
 private:
-    void nuo_type_check(const nuo_pair& np) const;
+    void nuo_type_check(const nuo_pair& np) const {
+        static_assert(
+            std::is_same<decltype(first), decltype(np.first)>::value,
+            "Error: Type of 'first' must be the same!"
+        );
+
+        static_assert(
+            std::is_same<decltype(second), decltype(np.second)>::value,
+            "Error: Type of 'second' must be the same!"
+        );
+    }
 public:
     T1 first;
     T2 second;
 
     /* Constructor */
-    constexpr nuo_pair() : first(), second() {}
-    constexpr nuo_pair(const T1& _first, const T2& _second) :
+    constexpr nuo_pair() noexcept(
+        std::is_nothrow_default_constructible_v<T1> &&
+        std::is_nothrow_default_constructible_v<T2>
+    ) : first(), second() {}
+    constexpr nuo_pair(const T1& _first, const T2& _second) noexcept(
+        std::is_nothrow_copy_constructible_v<T1> &&
+        std::is_nothrow_copy_constructible_v<T2>
+    ) :
         first(_first), second(_second) {}
 
     /* Destructor */
@@ -53,7 +69,7 @@ public:
     nuo_pair& operator*=(const nuo_pair& np);
     nuo_pair& operator/=(const nuo_pair& np);
 
-    const void swap(nuo_pair& np) noexcept (
+    void swap(nuo_pair& np) noexcept (
         noexcept(std::swap(first, np.first)) &&
         noexcept(std::swap(second, np.second))
     ) {
@@ -64,6 +80,104 @@ public:
 template<typename T1, typename T2>
 nuo_pair<T1, T2> nuo_make_pair(T1 _first, T2 _second) {
     return nuo_pair<T1, T2>(_first, _second);
+}
+
+/* ------------------------------ */
+/* Out-of-class template definitions */
+
+/* Group 1 */
+template<typename T1, typename T2>
+bool nuo_pair<T1, T2>::operator<(const nuo_pair& np) const {
+    nuo_type_check(np);
+    if (first == np.first) return second < np.second;
+    else return first < np.first;
+}
+
+template<typename T1, typename T2>
+bool nuo_pair<T1, T2>::operator<=(const nuo_pair& np) const {
+    nuo_type_check(np);
+    if (first == np.first) return second <= np.second;
+    else return first < np.first;
+}
+
+template<typename T1, typename T2>
+bool nuo_pair<T1, T2>::operator>(const nuo_pair& np) const {
+    nuo_type_check(np);
+    if (first == np.first) return second > np.second;
+    else return first > np.first;
+}
+
+template<typename T1, typename T2>
+bool nuo_pair<T1, T2>::operator>=(const nuo_pair& np) const {
+    nuo_type_check(np);
+    if (first == np.first) return second >= np.second;
+    else return first > np.first;
+}
+
+template<typename T1, typename T2>
+bool nuo_pair<T1, T2>::operator==(const nuo_pair& np) const {
+    nuo_type_check(np);
+    return first == np.first && second == np.second;
+}
+
+template<typename T1, typename T2>
+bool nuo_pair<T1, T2>::operator!=(const nuo_pair& np) const {
+    nuo_type_check(np);
+    return !(first == np.first && second == np.second);
+}
+
+/* Group 2 */
+template<typename T1, typename T2>
+nuo_pair<T1, T2> nuo_pair<T1, T2>::operator+(const nuo_pair& np) const {
+    nuo_type_check(np);
+    return nuo_make_pair(first + np.first, second + np.second);
+}
+
+template<typename T1, typename T2>
+nuo_pair<T1, T2> nuo_pair<T1, T2>::operator-(const nuo_pair& np) const {
+    nuo_type_check(np);
+    return nuo_make_pair(first - np.first, second - np.second);
+}
+
+template<typename T1, typename T2>
+nuo_pair<T1, T2> nuo_pair<T1, T2>::operator*(const nuo_pair& np) const {
+    nuo_type_check(np);
+    return nuo_make_pair(first * np.first, second * np.second);
+}
+
+template<typename T1, typename T2>
+nuo_pair<T1, T2> nuo_pair<T1, T2>::operator/(const nuo_pair& np) const {
+    nuo_type_check(np);
+    return nuo_make_pair(first / np.first, second / np.second);
+}
+
+/* Group 3 */
+template<typename T1, typename T2>
+nuo_pair<T1, T2>& nuo_pair<T1, T2>::operator+=(const nuo_pair& np) {
+    nuo_type_check(np);
+    first += np.first, second += np.second;
+    return *this;
+}
+
+template<typename T1, typename T2>
+nuo_pair<T1, T2>& nuo_pair<T1, T2>::operator-=(const nuo_pair& np) {
+    nuo_type_check(np);
+    first -= np.first, second -= np.second;
+    return *this;
+}
+
+template<typename T1, typename T2>
+nuo_pair<T1, T2>& nuo_pair<T1, T2>::operator*=(const nuo_pair& np) {
+    nuo_type_check(np);
+    first *= np.first, second *= np.second;
+    return *this;
+}
+
+template<typename T1, typename T2>
+nuo_pair<T1, T2>& nuo_pair<T1, T2>::operator/=(const nuo_pair& np) {
+    nuo_type_check(np);
+    first /= np.first, second /= np.second;
+    return *this;
 }
 
 } /* namespace nuostl */
@@ -88,7 +202,7 @@ constexpr const auto& get(const nuostl::nuo_pair<T1, T2>& p) noexcept {
 
 /* for right value */
 template<size_t N, typename T1, typename T2>
-constexpr auto&& get(nuostl::nuo_pair<T1, T2>& p) noexcept {
+constexpr auto&& get(nuostl::nuo_pair<T1, T2>&& p) noexcept {
     static_assert(N < 2, "Index out of range in nuo_pair::get");
     if constexpr (N == 0) return move(p.first);
     else return move(p.second);
