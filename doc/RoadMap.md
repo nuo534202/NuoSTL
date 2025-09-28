@@ -1,75 +1,77 @@
-# Road Map  
+# Road Map
 
-## 1. C++ STL Core Components  
+## 1. C++ STL Core Components
 
 ### Data Types
 
-- [ ] nuo_string – Similar to `std::string` (DDL: TBD)  
-- [x] nuo_pair – Similar to `std::pair`  
-- [ ] nuo_tuple – Similar to `std::tuple`  
-- [ ] nuo_optional – Similar to `std::optional`  
-- [ ] nuo_variant – Similar to `std::variant`  
-- [ ] nuo_any – Similar to `std::any`  
+- [ ] nuo_any – Similar to `std::any`
+- [ ] nuo_optional – Similar to `std::optional`
+- [x] nuo_pair – Similar to `std::pair`
+- [ ] nuo_string – Similar to `std::string` (DDL: TBD)
+- [ ] nuo_tuple – Similar to `std::tuple`
+- [ ] nuo_variant – Similar to `std::variant`
 
 ### Sequence Containers
 
-- [ ] nuo_vector – Similar to `std::vector`  
-- [ ] nuo_list – Similar to `std::list`  
-- [ ] nuo_forward_list – Similar to `std::forward_list`  
-- [ ] nuo_deque – Similar to `std::deque`  
-- [ ] nuo_array – Similar to `std::array`  
+- [ ] nuo_array – Similar to `std::array`
+- [ ] nuo_deque – Similar to `std::deque`
+- [ ] nuo_forward_list – Similar to `std::forward_list`
+- [ ] nuo_list – Similar to `std::list`
+- [ ] nuo_string_view – Similar to `std::string_view`
+- [ ] nuo_vector – Similar to `std::vector`
 
 ### Associative Containers
 
-- [ ] nuo_set – Similar to `std::set`  
-- [ ] nuo_multiset – Similar to `std::multiset`  
-- [ ] nuo_map – Similar to `std::map`  
-- [ ] nuo_multimap – Similar to `std::multimap`  
+- [ ] nuo_map – Similar to `std::map`
+- [ ] nuo_multimap – Similar to `std::multimap`
+- [ ] nuo_multiset – Similar to `std::multiset`
+- [ ] nuo_set – Similar to `std::set`
 
 ### Unordered (Hash) Containers
 
-- [ ] nuo_unordered_set – Similar to `std::unordered_set`  
-- [ ] nuo_unordered_multiset – Similar to `std::unordered_multiset`  
-- [ ] nuo_unordered_map – Similar to `std::unordered_map`  
-- [ ] nuo_unordered_multimap – Similar to `std::unordered_multimap`  
+- [ ] nuo_unordered_map – Similar to `std::unordered_map`
+- [ ] nuo_unordered_multimap – Similar to `std::unordered_multimap`
+- [ ] nuo_unordered_multiset – Similar to `std::unordered_multiset`
+- [ ] nuo_unordered_set – Similar to `std::unordered_set`
 
 ### Container Adapters
 
-- [ ] nuo_stack – Similar to `std::stack`  
-- [ ] nuo_queue – Similar to `std::queue`  
-- [ ] nuo_priority_queue – Similar to `std::priority_queue`  
+- [ ] nuo_priority_queue – Similar to `std::priority_queue`
+- [ ] nuo_queue – Similar to `std::queue`
+- [ ] nuo_stack – Similar to `std::stack`
 
 ### Iterators
 
-- [ ] Input Iterator  
-- [ ] Output Iterator  
-- [ ] Forward Iterator  
-- [ ] Bidirectional Iterator  
-- [ ] Random Access Iterator  
-- [ ] Iterator Traits  
+- [ ] Bidirectional Iterator
+- [ ] Forward Iterator
+- [ ] Input Iterator
+- [ ] Iterator Traits
+- [ ] Output Iterator
+- [ ] Random Access Iterator
 
 ### Algorithms
 
-- [ ] nuo_sort – Similar to `std::sort`  
-- [ ] nuo_find – Similar to `std::find`  
-- [ ] nuo_copy – Similar to `std::copy`  
-- [ ] nuo_transform – Similar to `std::transform`  
-- [ ] nuo_accumulate – Similar to `std::accumulate`  
-- [ ] nuo_binary_search – Similar to `std::binary_search`  
-- [ ] nuo_merge – Similar to `std::merge`  
-- [ ] nuo_max / nuo_min (DDL: 9.30)  
-- [ ] nuo_for_each – Similar to `std::for_each`  
+- [ ] nuo_accumulate – Similar to `std::accumulate`
+- [ ] nuo_binary_search – Similar to `std::binary_search`
+- [ ] nuo_copy – Similar to `std::copy`
+- [ ] nuo_find – Similar to `std::find`
+- [ ] nuo_for_each – Similar to `std::for_each`
+- [ ] nuo_max – Similar to `std::max` (DDL: 9.30)
+- [ ] nuo_merge – Similar to `std::merge`
+- [ ] nuo_min – Similar to `std::min` (DDL: 9.30)
+- [ ] nuo_sort – Similar to `std::sort`
+- [ ] nuo_transform – Similar to `std::transform`
 
 ### Function Objects (Functors)
 
-- [ ] nuo_plus – Similar to `std::plus`  
-- [ ] nuo_minus – Similar to `std::minus`  
-- [ ] nuo_multiplies – Similar to `std::multiplies`  
-- [ ] nuo_divides – Similar to `std::divides`  
-- [ ] nuo_modulus – Similar to `std::modulus`  
-- [ ] nuo_equal_to – Similar to `std::equal_to`  
-- [ ] nuo_less – Similar to `std::less`  
-- [ ] nuo_greater – Similar to `std::greater`  
+- [ ] nuo_divides – Similar to `std::divides`
+- [ ] nuo_equal_to – Similar to `std::equal_to`
+- [ ] nuo_greater – Similar to `std::greater`
+- [ ] nuo_minus – Similar to `std::minus`
+- [ ] nuo_modulus – Similar to `std::modulus`
+- [ ] nuo_multiplies – Similar to `std::multiplies`
+- [ ] nuo_less – Similar to `std::less`
+- [ ] nuo_plus – Similar to `std::plus`
 
 ### Allocators
 
@@ -78,8 +80,8 @@
 
 ## 2. Additional Components
 
-- [ ] BigInteger Class – Arbitrary precision integer type  
-- [ ] Fraction Class – Rational number representation  
-- [ ] Matrix Class – Linear algebra support  
-- [ ] Complex Number Class – Similar to `std::complex` but extended  
-- [ ] Polynomial Class – Symbolic polynomial arithmetic  
+- [ ] BigInteger Class – Arbitrary precision integer type
+- [ ] Complex Number Class – Similar to `std::complex` but extended
+- [ ] Fraction Class – Rational number representation
+- [ ] Matrix Class – Linear algebra support
+- [ ] Polynomial Class – Symbolic polynomial arithmetic
