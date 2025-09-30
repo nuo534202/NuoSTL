@@ -1,19 +1,19 @@
 #include "./core/algorithms/test_nuo_max.hpp"
 
 #include <assert.h>
+#include <math.h>
 
+#include <array>
 #include <execution>
+#include <forward_list>
 #include <functional>
+#include <limits>
+#include <list>
 #include <string>
 #include <tuple>
 #include <type_traits>
 #include <utility>
-#include <array>
 #include <vector>
-#include <list>
-#include <forward_list>
-#include <limits>
-#include <cmath>
 
 #include "nuostl.hpp"
 

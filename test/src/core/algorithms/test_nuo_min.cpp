@@ -2,16 +2,16 @@
 
 #include <assert.h>
 
+#include <array>
+#include <forward_list>
+#include <limits>
+#include <list>
 #include <initializer_list>
 #include <string>
 #include <tuple>
 #include <type_traits>
 #include <utility>
-#include <array>
 #include <vector>
-#include <list>
-#include <forward_list>
-#include <limits>
 
 #include "nuostl.hpp"
 
