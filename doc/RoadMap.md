@@ -18,7 +18,7 @@
 - [ ] nuo_forward_list – Similar to `std::forward_list`
 - [ ] nuo_list – Similar to `std::list`
 - [ ] nuo_string_view – Similar to `std::string_view`
-- [ ] nuo_vector – Similar to `std::vector`
+- [ ] nuo_vector – Similar to `std::vector` (DDL: 10.12)
 
 ### Associative Containers
 
