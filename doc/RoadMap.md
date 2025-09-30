@@ -56,9 +56,9 @@
 - [ ] nuo_copy – Similar to `std::copy`
 - [ ] nuo_find – Similar to `std::find`
 - [ ] nuo_for_each – Similar to `std::for_each`
-- [ ] nuo_max – Similar to `std::max` (DDL: 9.30)
+- [x] nuo_max – Similar to `std::max`
 - [ ] nuo_merge – Similar to `std::merge`
-- [ ] nuo_min – Similar to `std::min` (DDL: 9.30)
+- [x] nuo_min – Similar to `std::min`
 - [ ] nuo_sort – Similar to `std::sort`
 - [ ] nuo_transform – Similar to `std::transform`
 
