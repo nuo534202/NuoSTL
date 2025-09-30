@@ -25,12 +25,14 @@ include_directories(
 
 # test source
 file(GLOB TEST_DATA_TYPES ${PROJECT_SOURCE_DIR}/src/core/data_types/*.cpp)
+file(GLOB TEST_ALGORITHMS ${PROJECT_SOURCE_DIR}/src/core/algorithms/*.cpp)
 
 set(TEST_SRC
     ${PROJECT_SOURCE_DIR}/src/test.cpp
 
     # C++ Core
     ${TEST_DATA_TYPES}
+    ${TEST_ALGORITHMS}
 )
 
 set(TEST ${TEST_SRC} ${SRC})
