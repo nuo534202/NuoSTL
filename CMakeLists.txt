@@ -9,6 +9,7 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
 
 set(CMAKE_BUILD_TYPE Debug)
+# set(CMAKE_BUILD_TYPE Release)
 
 # Warnings
 add_compile_options(-Wall)
@@ -18,9 +19,11 @@ include_directories(${PROJECT_SOURCE_DIR}/include)
 
 # Get the source code
 # file(GLOB DATA_TYPES ${PROJECT_SOURCE_DIR}/src/core/data_types/*.cpp)
+# file(GLOB ALGORITHMS ${PROJECT_SOURCE_DIR}/src/core/algorithms/*.cpp)
 
 set(CORE
-    ${DATA_TYPES}
+    # ${DATA_TYPES}
+    # ${ALGORITHMS}
 )
 
 set(NUOSTL
@@ -28,3 +31,10 @@ set(NUOSTL
 )
 
 add_library(NuoSTLLib SHARED ${NUOSTL})
+
+# Place build outputs (DLL/import lib) under the project's bin directory
+set_target_properties(NuoSTLLib PROPERTIES
+    RUNTIME_OUTPUT_DIRECTORY ${PROJECT_SOURCE_DIR}/bin
+    LIBRARY_OUTPUT_DIRECTORY ${PROJECT_SOURCE_DIR}/bin
+    ARCHIVE_OUTPUT_DIRECTORY ${PROJECT_SOURCE_DIR}/bin
+)

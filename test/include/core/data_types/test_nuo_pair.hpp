@@ -4,7 +4,7 @@
 namespace test {
 
 class Test_Nuo_Pair {
-public:
+private:
     static void test_compile_time(); 
 
     static void test_constructor();
@@ -15,6 +15,7 @@ public:
 
     static void test_get();
 
+public:
     static void test_nuo_pair();
 };
 
