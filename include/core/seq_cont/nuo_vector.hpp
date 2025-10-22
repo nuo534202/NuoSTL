@@ -942,14 +942,89 @@ public:
 
 
     /* element access */
-    constexpr reference operator[](size_type n);
-    constexpr const_reference operator[](size_type n) const;
-    constexpr const_reference at(size_type n) const;
-    constexpr reference at(size_type n);
-    constexpr reference front();
-    constexpr const_reference front() const;
-    constexpr reference back();
-    constexpr const_reference back() const;
+    constexpr reference operator[](size_type n)
+    {
+        if (n < 0)
+            throw std::out_of_range(
+                "nuo_vector::_M_range_check: __n (which is " + n + ") must be larger than 0"
+            );
+        
+        if (n >= _size)
+            throw std::out_of_range(
+                "nuo_vector::_M_range_check: __n (which is " +
+                n + ") >= this->size() (which is " + n + ")"
+            );
+        
+        return _data[n];
+    }
+
+    constexpr const_reference operator[](size_type n) const
+    {
+        if (n < 0)
+            throw std::out_of_range(
+                "nuo_vector::_M_range_check: __n (which is " + n + ") must be larger than 0"
+            );
+        
+        if (n >= _size)
+            throw std::out_of_range(
+                "nuo_vector::_M_range_check: __n (which is " +
+                n + ") >= this->size() (which is " + n + ")"
+            );
+        
+        return _data[n];
+    }
+
+    constexpr const_reference at(size_type n) const
+    {
+        if (n < 0)
+            throw std::out_of_range(
+                "nuo_vector::_M_range_check: __n (which is " + n + ") must be larger than 0"
+            );
+        
+        if (n >= _size)
+            throw std::out_of_range(
+                "nuo_vector::_M_range_check: __n (which is " +
+                n + ") >= this->size() (which is " + n + ")"
+            );
+        
+        return _data[n];
+    }
+
+    constexpr reference at(size_type n)
+    {
+        if (n < 0)
+            throw std::out_of_range(
+                "nuo_vector::_M_range_check: __n (which is " + n + ") must be larger than 0"
+            );
+        
+        if (n >= _size)
+            throw std::out_of_range(
+                "nuo_vector::_M_range_check: __n (which is " +
+                n + ") >= this->size() (which is " + n + ")"
+            );
+        
+        return _data[n];
+    }
+
+    constexpr reference front()
+    {
+        return *_data;
+    }
+
+    constexpr const_reference front() const
+    {
+        return *_data;
+    }
+
+    constexpr reference back()
+    {
+        return *(_data + _size - 1);
+    }
+
+    constexpr const_reference back() const
+    {
+        return *prev(_data + _size - 1);
+    }
 
 
     /* data access */
