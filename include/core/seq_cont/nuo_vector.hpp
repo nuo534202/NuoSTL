@@ -733,6 +733,7 @@ namespace nuostl
             return std::reverse_iterator(_data);
         }
 
+
         /* capacity */
         constexpr bool empty() const noexcept
         {
@@ -849,8 +850,78 @@ namespace nuostl
             }
         }
 
-        constexpr void reserve(size_type n);
-        constexpr void shrink_to_fit();
+        constexpr void reserve(size_type n)
+        {
+            if (_capacity >= n)
+                return;
+            
+            size_type new_capacity = std::bit_ceil(n);
+
+            pointer new_data = std::allocator_traits<Allocator>::allocate(_alloc, new_capacity);
+
+            size_type i;
+            try
+            {
+                for (i = 0; i < _size; i++)
+                {
+                    std::allocator_traits<Allocator>::construct(_alloc, new_data + i, _data[i]);
+                    std::allocator_traits<Allocator>::destroy(_alloc, _data + i);
+                }
+            }
+            catch
+            {
+                for (int j = 0; j < i; j++)
+                    std::allocator_traits<Allocator>::destroy(_alloc, new_data + j);
+                
+                std::allocator_traits<Allocator>::deallocate(new_data, new_capacity);
+                new_data = nullptr;
+                throw;
+            }
+
+            std::allocator_traits<Allocator>::deallocte(_alloc, _data, _capacity);
+            _data = new_data, new_data = nullptr;
+            _capacity = new_capacity;
+        }
+
+        constexpr void shrink_to_fit()
+        {
+            if (_size == 0)
+            {
+                std::allocator_traits<Allocator>::deallocate(_alloc, _capacity);
+                _data = nullptr;
+                _size = _capacit = 0;
+                return;
+            }
+
+            size_type new_capacity = std::bit_ceil(_size);
+            if (_capacity == new_capacity)
+                return;
+
+            pointer new_data = std::allocator_traits<Allocator>::allocate(_alloc, new_capacity);
+
+            size_type i;
+            try
+            {
+                for (i = 0; i < _size; i++)
+                {
+                    std::allocator_traits<Allocator>::construct(_alloc, new_data + i, _data[i]);
+                    std::allocator_traits<Allocator>::destroy(_alloc, _data + i);
+                }
+            }
+            catch
+            {
+                for (size_type j = 0; j < i; j++)
+                    std::allocator_traits<Allocator>::destory(_alloc, new_data + j);
+                
+                std::allocator_traits<Allocator>::deallocate(_alloc, new_data, new_capacity);
+                std::allocator_traits<Allocator>::deallocate(_alloc, _data, _capacity);
+                _data = new_data = nullptr;
+                _size = _capacity = 0;
+                throw;
+            }
+
+            _capacity = new_capacity;
+        }
 
 
         /* element access */
