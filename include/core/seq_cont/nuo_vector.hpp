@@ -754,11 +754,17 @@ public:
     /* capacity */
     constexpr bool empty() const noexcept
     {
+        if (this == nullptr)
+            return true;
+
         return _size == 0;
     }
 
     constexpr size_type size() const noexcept
     {
+        if (this == nullptr)
+            return (size_type) 0;
+
         return _size;
     }
 
@@ -769,6 +775,9 @@ public:
 
     constexpr size_type capacity() const noexcept
     {
+        if (this == nullptr)
+            return (size_type) 0;
+
         return _capacity;
     }
 
@@ -1028,8 +1037,20 @@ public:
 
 
     /* data access */
-    constexpr T *data() noexcept;
-    constexpr const T *data() const noexcept;
+    constexpr T *data() noexcept
+    {
+        if (empty())
+            return nullptr;
+
+        return _data;
+    }
+    constexpr const T *data() const noexcept
+    {
+        if (empty())
+            return nullptr;
+
+        return _data;
+    }
 
 
     /* modifiers */
