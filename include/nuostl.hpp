@@ -13,4 +13,7 @@
 #include "./core/algorithms/nuo_max.hpp"
 #include "./core/algorithms/nuo_min.hpp"
 
+/* 2. Utils */
+#include "./utils/math.hpp"
+
 #endif
