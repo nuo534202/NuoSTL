@@ -18,12 +18,14 @@ add_compile_options(-Wall)
 include_directories(${PROJECT_SOURCE_DIR}/include)
 
 # Get the source code
-# file(GLOB DATA_TYPES ${PROJECT_SOURCE_DIR}/src/core/data_types/*.cpp)
-# file(GLOB ALGORITHMS ${PROJECT_SOURCE_DIR}/src/core/algorithms/*.cpp)
+file(GLOB DATA_TYPES ${PROJECT_SOURCE_DIR}/src/core/data_types/*.cpp)
+file(GLOB ALGORITHMS ${PROJECT_SOURCE_DIR}/src/core/algorithms/*.cpp)
+file(GLOP SEQ_CONT ${PROJECT_SOURCE_DIR}/src/core/seq_cont/*.cpp)
 
 set(CORE
-    # ${DATA_TYPES}
-    # ${ALGORITHMS}
+    ${DATA_TYPES}
+    ${ALGORITHMS}
+    ${SEQ_CONT}
 )
 
 set(NUOSTL
