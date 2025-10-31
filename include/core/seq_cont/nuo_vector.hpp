@@ -1037,7 +1037,6 @@ public:
         return _capacity;
     }
 
-    /* TODO */
     constexpr void resize(size_type sz)
     {
         if (sz < _size)
@@ -1065,6 +1064,8 @@ public:
                                                                     _data[i]);
                         std::allocator_traits<Allocator>::destroy(_alloc, _data + i);
                     }
+                    for (; i < sz; i++)
+                        std::allocator_traits<Allocator>::construct(_alloc, new_data + i);
                 }
                 catch (const std::exception& e)
                 {
@@ -1115,11 +1116,11 @@ public:
                 {
                     for (; i < _size; i++)
                     {
-                        std::allocator_traits<Allocator>::construct(_alloc,
-                                                                    new_data + i,
-                                                                    _data[i]);
+                        std::allocator_traits<Allocator>::construct(_alloc, new_data + i, c);
                         std::allocator_traits<Allocator>::destroy(_alloc, _data + i);
                     }
+                    for (; i < sz; i++)
+                        std::allocator_traits<Allocator>::construct(_alloc, new_data + i, c);
                 }
                 catch (const std::exception& e)
                 {
@@ -1316,6 +1317,7 @@ public:
 
         return _data;
     }
+
     constexpr const T *data() const noexcept
     {
         if (empty())
@@ -1326,10 +1328,34 @@ public:
 
 
     /* modifiers */
-    /* TODO */
-    template <class... Args>
+    template <typename... Args>
     constexpr reference emplace_back(Args &&...args)
     {
+        if (_size >= _capacity)
+        {
+            size_type new_capacity = (_capacity > 0) ? (_capacity << 1) : 1;
+            reserve(new_capacity);
+        }
+
+        try
+        {
+            std::allocator_traits<Allocator>::construct(
+                _alloc, _data + _size, std::forward<Args>(args)...);
+        }
+        catch (const std::exception& e)
+        {
+            for (size_type i = 0; i <= _size; i++)
+                std::allocator_traits<Allocator>::destroy(_alloc, _data + i);
+
+            std::allocator_traits<Allocator>::deallocate(_alloc, _data, _capacity);
+            _size = _capacity = 0;
+            _data = nullptr;
+            throw;
+        }
+        
+        _size++;
+
+        return _data[_size - 1];
     }
 
     constexpr void push_back(const T &x)
@@ -1351,6 +1377,7 @@ public:
             _data = nullptr;
             throw;
         }
+
         _size++;
     }
 
@@ -1373,11 +1400,44 @@ public:
             _data = nullptr;
             throw;
         }
+
         _size++;
     }
 
     template <std::ranges::input_range R>
-    constexpr void append_range(R &&rg);
+    constexpr void append_range(R &&rg)
+    {
+        size_type n;
+        if constexpr (std::ranges::sized_range<R>)
+            n = std::ranges::size(rg);
+        else
+            n = std::ranges::distance(rg);
+
+        if (_size + n > _capacity)
+            reserve(_capacity ? (_size + n + _capacity - 1) / _capacity * _capacity : _size  + n);
+
+        size_type i = _size;
+        try
+        {
+            auto first = std::ranges::begin(rg), last = std::ranges::end(rg);
+            for (auto it = first; i < _size + n && it != last; i++, it++)
+                std::allocator_traits<Allocator>::construct(_alloc, _data + i, *it);
+                
+        }
+        catch(const std::exception& e)
+        {
+            for (int j = 0; j < i; j++)
+                std::allocator_traits<Allocator>::destroy(_alloc, _data + j);
+
+            std::allocator_traits<Allocator>::deallocate(_alloc, _data, _capacity);
+            _size = _capacity = 0;
+            _data = nullptr;
+            throw;
+        }
+
+        _size += n;
+    }
+
     constexpr void pop_back()
     {
         if (_size == 0)
@@ -1395,8 +1455,35 @@ public:
     constexpr iterator insert(const_iterator position, size_type n, const T &x);
     template <class InputIter>
     constexpr iterator insert(const_iterator position, InputIter first, InputIter last);
+
+    /* TODO */
     template <std::ranges::input_range R>
-    constexpr iterator insert_range(const_iterator position, R &&rg);
+    constexpr iterator insert_range(const_iterator position, R &&rg)
+    {
+        size_type n;
+        if constexpr (std::sized_range<R>)
+            n = std::ranges::size(rg);
+        else
+            n = std::ranges::distance(rg);
+
+        if (_size + n > _capacity)
+            reserve(_capacity ? (_size + n + _capacity - 1) / _capacity * _capacity : _size + n);
+
+        size_type pos = position - _data;
+
+        size_type i = pos;
+        try
+        {
+            for (i = 0)
+        }
+        catch(const std::exception& e)
+        {
+            std::cerr << e.what() << '\n';
+        }
+        
+    }
+
+    /* TODO */
     constexpr iterator insert(const_iterator position, std::initializer_list<T> il);
     constexpr iterator erase(const_iterator position);
     constexpr iterator erase(const_iterator first, const_iterator last);
