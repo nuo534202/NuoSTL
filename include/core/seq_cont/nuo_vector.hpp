@@ -1655,9 +1655,32 @@ public:
     constexpr iterator insert(const_iterator position, std::initializer_list<T> il);
     constexpr iterator erase(const_iterator position);
     constexpr iterator erase(const_iterator first, const_iterator last);
-    constexpr void swap(nuo_vector &) noexcept(
+    constexpr void swap(nuo_vector &nv) noexcept(
         std::allocator_traits<Allocator>::propagate_on_container_swap::value ||
-        std::allocator_traits<Allocator>::is_always_equal::value);
+        std::allocator_traits<Allocator>::is_always_equal::value)
+    {
+        if constexpr (std::allocator_traits<Allocator>::propagate_on_container_swap::value)
+        {
+            std::swap(_alloc, nv._alloc);
+        }
+        else if constexpr (!std::allocator_traits<Allocator>::is_always_equal::value)
+        {
+            throw std::logic_error(
+                "nuo_vector::swap: allocators can not be propagated and they are not equal"
+            );
+        }
+
+        std::swap(_data, nv._data);
+        std::swap(_size, nv._size);
+        std::swap(_capacity, nv._capacity);
+    }
+
+    friend constexpr void swap(nuo_vector &lhs, nuo_vector &rhs) noexcept(
+        std::allocator_traits<Allocator>::propagate_on_container_swap::value ||
+        std::allocator_traits<Allocator>::is_always_equal::value)
+    {
+        lhs.swap(rhs);
+    }
 
     constexpr void clear() noexcept
     {
