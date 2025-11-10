@@ -43,6 +43,7 @@ private:
 public:
     /* construct / copy / destroy */
     /* TODO: replace to_string with nuo_to_string */
+    /* TODO: Use reserve() to reallocate memory */
     constexpr nuo_vector() noexcept(noexcept(Allocator()))
         : nuo_vector(Allocator()) {}
 
@@ -560,6 +561,8 @@ public:
     {
         if (first > last)
             throw std::length_error("nuo_vector: first is smaller than or equal to last");
+
+        reserve(_size + last - first);
 
         if (_capacity < last - first)
         {
@@ -1360,8 +1363,11 @@ public:
 
     constexpr void push_back(const T &x)
     {
-        if (_size + 1 > _capacity)
-            resize(_capacity << 1);
+        if (_size >= _capacity)
+        {
+            size_type new_capacity = (_capacity > 0) ? (_capacity << 1) : 1;
+            reserve(new_capacity);
+        }
 
         try
         {
@@ -1383,8 +1389,11 @@ public:
 
     constexpr void push_back(T &&x)
     {
-        if (_size + 1 > _capacity)
-            resize(_capacity << 1);
+        if (_size >= _capacity)
+        {
+            size_type new_capacity = (_capacity > 0) ? (_capacity << 1) : 1;
+            reserve(new_capacity);
+        }
 
         try
         {
@@ -1413,8 +1422,11 @@ public:
         else
             n = std::ranges::distance(rg);
 
-        if (_size + n > _capacity)
-            reserve(_capacity ? (_size + n + _capacity - 1) / _capacity * _capacity : _size  + n);
+        if (_size >= _capacity)
+        {
+            size_type new_capacity = (_capacity > 0) ? (_capacity << 1) : 1;
+            reserve(new_capacity);
+        }
 
         size_type i = _size;
         try
@@ -1461,24 +1473,41 @@ public:
     constexpr iterator insert_range(const_iterator position, R &&rg)
     {
         size_type n;
-        if constexpr (std::sized_range<R>)
+        if constexpr (std::ranges::sized_range<R>)
             n = std::ranges::size(rg);
         else
             n = std::ranges::distance(rg);
 
         if (_size + n > _capacity)
-            reserve(_capacity ? (_size + n + _capacity - 1) / _capacity * _capacity : _size + n);
+        {
+            size_type new_capacity = (_capacity > 0) ? (_capacity << 1) : 1;
+            reserve(new_capacity);
+        }
 
         size_type pos = position - _data;
 
-        size_type i = pos;
+        size_type i = _size - 1;
         try
         {
-            for (i = 0)
+            for (;i >= pos; i--)
+            {
+                std::allocator_traits<Allocator>::construct(_alloc, _data + i + n, _data[i]);
+                std::allocator_traits<Allocator>::destroy(_alloc, _data + i);
+            }
         }
         catch(const std::exception& e)
         {
-            std::cerr << e.what() << '\n';
+            for (size_type j = 0; j < i; j++)
+                std::allocator_traits<Allocator>::destroy(_alloc, _data + j);
+            
+            for (size_type j = _size + n - 1; j > _size + i; j--)
+                std::allocator_traits<Allocator>::destroy(_alloc, _data + j);
+            
+            std::allocator_traits<Allocator>::deallocate(_alloc, _data, _capacity);
+
+            _size = _capacity = 0;
+            _data = nullptr;
+            throw;
         }
         
     }
