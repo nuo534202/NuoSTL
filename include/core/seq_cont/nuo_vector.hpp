@@ -562,7 +562,14 @@ public:
         if (first > last)
             throw std::length_error("nuo_vector: first is smaller than or equal to last");
 
-        reserve(_size + last - first);
+        if (_size + last - first > _capacity)
+        {
+            size_type new_capacity =
+                _size + last - first > 0 ?
+                (_size + last - first + _capacity - 1)  / _capacity * _capacity :
+                1;
+            reserve(new_capacity);
+        }
 
         if (_capacity < last - first)
         {
@@ -1382,7 +1389,7 @@ public:
         if (_size >= _capacity)
         {
             size_type new_capacity =
-                (_capacity > 0) ? ((_capacity + n) / _capacity * _capacity) : 1;
+                (_size + n > 0) ? ((_size + _capacity + n - 1) / _capacity * _capacity) : 1;
             reserve(new_capacity);
         }
 
@@ -1420,16 +1427,13 @@ public:
     template <class... Args>
     constexpr iterator emplace(const_iterator position, Args &&...args)
     {
-        size_type pos = -1;
+        size_type pos = position - _data;
+
         if (_size >= _capacity)
         {
             size_type new_capacity = _capacity ? _capacity << 1 : 1;
-            pos = position - _data;
             reserve(new_capacity);
         }
-
-        if (pos == -1)
-            pos = position - _data;
 
         if constexpr (std::is_copy_assignable_v<T> || std::is_move_assignable_v<T>)
         {
@@ -1502,29 +1506,208 @@ public:
         }
     }
 
-    /* TODO */
-    constexpr iterator insert(const_iterator position, const T &x);
-    constexpr iterator insert(const_iterator position, T &&x);
-    constexpr iterator insert(const_iterator position, size_type n, const T &x);
+    constexpr iterator insert(const_iterator position, const T &x)
+    {
+        size_type pos = position - _data;
+
+        if (_size >= _capacity)
+        {
+            size_type new_capacity = _capacity ? _capacity << 1 : 1;
+            reserve(new_capacity);
+        }
+
+        if constexpr (std::is_copy_assignable_v<T> || std::is_move_assignable_v<T>)
+        {
+            try
+            {
+                std::allocator_traits<Allocator>::construct(_alloc, _data + _size);
+                _size++;
+            }
+            catch(const std::exception& e)
+            {
+                for (size_type i = 0; i < _size; i++)
+                    std::allocator_traits<Allocator>::destroy(_alloc, _data + i);
+
+                std::allocator_traits<Allocator>::deallocate(_alloc, _data, _capacity);
+                _size = _capacity = 0;
+                _data = nullptr;
+                throw;
+            }
+
+            if constexpr (std::is_copy_assignable_v<T>)
+            {
+                for (size_type i = _size - 1; i > pos; i--)
+                    _data[i] = _data[i - 1];
+                _data[pos] = x;
+            }
+            else if constexpr (std::is_move_assignable_v<T>)
+            {
+                for (size_type i = _size - 1; i > pos; i--)
+                    _data[i] = std::move(_data[i - 1]);
+                _data[pos] = x;
+            }
+            
+        }
+        else
+        {
+            size_type i = _size;
+            try
+            {
+                for (; i > pos; i--)
+                {
+                    std::allocator_traits<Allocator>::construct(_alloc, _data + i, _data[i - 1]);
+                    std::allocator_traits<Allocator>::destroy(_alloc, _data + i - 1);
+                }
+            }
+            catch(const std::exception& e)
+            {
+                for (size_type j = 0; j < i; j++)
+                    std::allocator_traits<Allocator>::destroy(_alloc, _data + j);
+
+                for (size_type j = i + 1; j <= _size; j++)
+                    std::allocator_traits<Allocator>::destroy(_alloc, _data + j);
+
+                std::allocator_traits<Allocator>::deallocate(_alloc, _data, _capacity);
+                
+                _size = _capacity = 0;
+                _data = nullptr;
+                throw;
+            }
+
+            try
+            {
+                std::allocator_traits<Allocator>::construct(_alloc, _data + pos, x);
+            }
+            catch(const std::exception& e)
+            {
+                for (size_type j = 0; j <= _size; j++)
+                    std::allocator_traits<Allocator>::destroy(_alloc, _data + j);
+
+                std::allocator_traits<Allocator>::deallocate(_alloc, _data, _capacity);
+                _size = _capacity = 0;
+                _data = nullptr;
+                throw;
+            }            
+            
+            _size++;
+        }
+    }
+
+    constexpr iterator insert(const_iterator position, T &&x)
+    {
+        const T& nx = std::move(x);
+        insert(position, nx);
+    }
+
+    constexpr iterator insert(const_iterator position, size_type n, const T &x)
+    {
+        size_type pos = position - _data;
+
+        if (_size + n >= _capacity)
+        {
+            size_type new_capacity =
+                _size + n > 0 ? (_size + _capacity + n - 1) / _capacity * _capacity : 1;
+            reserve(new_capacity);
+        }
+
+        if constexpr (std::is_copy_assignable_v<T> || std::is_move_assignable_v<T>)
+        {
+            size_type i = _size;
+            try
+            {
+                for (; i < _size + n; i++)
+                    std::allocator_traits<Allocator>::construct(_alloc, _data + i);
+            }
+            catch(const std::exception& e)
+            {
+                for (size_type j = 0; j < i; j++)
+                    std::allocator_traits<Allocator>::destroy(_alloc, _data + j);
+
+                std::allocator_traits<Allocator>::deallocate(_alloc, _data, _capacity);
+                _size = _capacity = 0;
+                _data = nullptr;
+                throw;
+            }
+
+            if constexpr (std::is_copy_assignable_v<T>)
+            {
+                for (size_type i = _size - 1; i > pos; i--)
+                    _data[i + n] = _data[i];
+                _data[pos] = x;
+            }
+            else if constexpr (std::is_move_assignable_v<T>)
+            {
+                for (size_type i = _size - 1; i > pos; i--)
+                    _data[i + n] = std::move(_data[i]);
+                _data[pos] = x;
+            }
+            
+            _size += n;
+        }
+        else
+        {
+            size_type i = _size - 1;
+            try
+            {
+                for (; i > pos; i--)
+                {
+                    std::allocator_traits<Allocator>::construct(_alloc, _data + i + n, _data[i]);
+                    std::allocator_traits<Allocator>::destroy(_alloc, _data + i);
+                }
+            }
+            catch(const std::exception& e)
+            {
+                for (size_type j = 0; j <= i; j++)
+                    std::allocator_traits<Allocator>::destroy(_alloc, _data + j);
+
+                for (size_type j = i + n + 1; j <= _size; j++)
+                    std::allocator_traits<Allocator>::destroy(_alloc, _data + j);
+
+                std::allocator_traits<Allocator>::deallocate(_alloc, _data, _capacity);
+
+                _size = _capacity = 0;
+                _data = nullptr;
+                throw;
+            }
+
+            i = pos;
+            try
+            {
+                for (; i < pos + n; i++)
+                    std::allocator_traits<Allocator>::construct(_alloc, _data + i, x);
+            }
+            catch(const std::exception& e)
+            {
+                for (size_type j = 0; j < i; j++)
+                    std::allocator_traits<Allocator>::destroy(_alloc, _data + j);
+
+                for (size_type j = pos + n - 1; j < _size + n; j++)
+                    std::allocator_traits<Allocator>::destroy(_alloc, _data + j);
+
+                std::allocator_traits<Allocator>::deallocate(_alloc, _data, _capacity);
+                _size = _capacity = 0;
+                _data = nullptr;
+                throw;
+            }  
+            
+            _size += n;
+        }
+    }
     
-    template <class InputIter>
+    template <typename InputIter>
     constexpr iterator insert(const_iterator position, InputIter first, InputIter last)
     {
         if (first >= last)
             throw std::length_error("nuo_vector: first is smaller or equal to last");
 
-        size_type n = last - first, pos = -1;
+        size_type n = last - first, pos = position - _data;
 
         if (_size >= _capacity)
         {
             size_type new_capacity =
-                (_capacity > 0) ? ((_capacity + n) / _capacity * _capacity) : 1;
-            pos  = position - _data;
+                (_size + n > 0) ? ((_size + _capacity + n - 1) / _capacity * _capacity) : 1;
             reserve(new_capacity);
         }
-
-        if (pos == -1)
-            pos = position - _data;
 
         size_type i = _size - 1;
         try
@@ -1583,18 +1766,14 @@ public:
         else
             n = std::ranges::distance(rg);
 
-        size_type pos = -1;
+        size_type pos = position - _data;
 
         if (_size >= _capacity)
         {
             size_type new_capacity =
-                (_capacity > 0) ? ((_capacity + n) / _capacity * _capacity) : 1;
-            pos = position - _data;
+                (_size + n > 0) ? ((_size + _capacity + n - 1) / _capacity * _capacity) : 1;
             reserve(new_capacity);
         }
-
-        if (pos == -1)
-            pos = position - _data;
 
         size_type i = _size - 1;
         try
