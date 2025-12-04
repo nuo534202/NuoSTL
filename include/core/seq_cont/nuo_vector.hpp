@@ -4,6 +4,7 @@
 #include <compare>
 #include <memory>
 #include <initializer_list>
+#include <iostream>
 #include <iterator>
 
 /* support <ranges> */
@@ -27,8 +28,7 @@ public:
     using const_pointer             = typename std::allocator_traits<Allocator>::const_pointer;
     using reference                 = value_type &;
     using const_reference           = const value_type &;
-    using size_type                 = size_t;
-    using difference_type           = size_t;
+    using difference_type           = int64_t;
     using iterator                  = T *;
     using const_iterator            = const T *;
     using reverse_iterator          = std::reverse_iterator<iterator>;
@@ -36,21 +36,24 @@ public:
 
 private:
     pointer         _data;
-    size_type       _size;
-    size_type       _capacity;
+    size_t       _size;
+    size_t       _capacity;
     allocator_type  _alloc;
 
 public:
     /* construct / copy / destroy */
     /* TODO: replace to_string with nuo_to_string */
     /* TODO: Use reserve() to reallocate memory */
+    /* TODO: assignment order must be the same as declaration order */
+    /* TODO: for all i >= pos, if pos == 0, it may cause error */
+    /* TODO: change some size_t to difference type, when necessary */
     constexpr nuo_vector() noexcept(noexcept(Allocator()))
         : nuo_vector(Allocator()) {}
 
     constexpr explicit nuo_vector(const Allocator &alloc) noexcept
-        : _size(0), _capacity(0), _data(nullptr), _alloc(alloc) {}
+        : _data(nullptr), _size(0), _capacity(0), _alloc(alloc) {}
 
-    constexpr explicit nuo_vector(size_type n, const Allocator &alloc = Allocator())
+    constexpr explicit nuo_vector(size_t n, const Allocator &alloc = Allocator())
         : _alloc(alloc)
     {
         if (n < 0)
@@ -66,7 +69,7 @@ public:
         _capacity = _size = n;
         _data = std::allocator_traits<Allocator>::allocate(_alloc, _capacity);        
 
-        size_type i = 0;
+        idx_t i = 0;
         try
         {
             for (; i < _size; i++)
@@ -74,17 +77,18 @@ public:
         }
         catch (const std::exception& e)
         {
-            for (size_type j = 0; j < i; j++)
+            for (idx_t j = 0; j < i; j++)
                 std::allocator_traits<Allocator>::destroy(_alloc, _data + j);
 
             std::allocator_traits<Allocator>::deallocate(_alloc, _data, _capacity);
             _size = _capacity = 0;
             _data = nullptr;
+            std::cerr << e.what() << std::endl;
             throw;
         }
     }
 
-    constexpr nuo_vector(size_type n, const T &value, const Allocator &alloc = Allocator())
+    constexpr nuo_vector(size_t n, const T &value, const Allocator &alloc = Allocator())
         : _alloc(alloc)
     {
         if (n < 0)
@@ -100,7 +104,7 @@ public:
         _capacity = _size = n;
         _data = std::allocator_traits<Allocator>::allocate(_alloc, _capacity);
 
-        size_type i = 0;
+        idx_t i = 0;
         try
         {
             for (; i < _size; i++)
@@ -108,17 +112,21 @@ public:
         }
         catch (const std::exception& e)
         {
-            for (size_type j = 0; j < i; j++)
+            for (idx_t j = 0; j < i; j++)
                 std::allocator_traits<Allocator>::destroy(_alloc, _data + j);
 
             std::allocator_traits<Allocator>::deallocate(_alloc, _data, _capacity);
             _size = _capacity = 0;
             _data = nullptr;
+            std::cerr << e.what() << std::endl;
             throw;
         }
     }
 
-    template <typename InputIter>
+    template <
+        typename InputIter,
+        typename = typename std::enable_if<!std::is_integral<InputIter>::value>::type
+    >
     constexpr nuo_vector(InputIter first, InputIter last, const Allocator &alloc = Allocator())
         : _alloc(alloc)
     {
@@ -132,23 +140,24 @@ public:
             return;
         }
 
-        _size = _capacity = last - first;
+        _size = _capacity = std::distance(first, last);
         _data = std::allocator_traits<Allocator>::allocate(_alloc, _capacity);
 
-        size_type i = 0;
+        idx_t i = 0;
         try
         {
-            for (InputIter it = first; it < last; it++, i++)
+            for (InputIter it = first; it != last; it++, i++)
                 std::allocator_traits<Allocator>::construct(_alloc, _data + i, *it);
         }
         catch (const std::exception& e)
         {
-            for (size_type j = 0; j < i; j++)
+            for (idx_t j = 0; j < i; j++)
                 std::allocator_traits<Allocator>::destroy(_alloc, _data + j);
 
             std::allocator_traits<Allocator>::deallocate(_alloc, _data, _capacity);
             _size = _capacity = 0;
             _data = nullptr;
+            std::cerr << e.what() << std::endl;
             throw;
         }
     }
@@ -169,7 +178,7 @@ public:
             }
             _data = std::allocator_traits<Allocator>::allocate(_alloc, _capacity);
 
-            size_type i = 0;
+            idx_t i = 0;
             try
             {
                 for (auto &&elem : rg)
@@ -184,12 +193,13 @@ public:
             }
             catch (const std::exception& e)
             {
-                for (size_type j = 0; j < i; j++)
+                for (idx_t j = 0; j < i; j++)
                     std::allocator_traits<Allocator>::destory(_alloc, _data + j);
 
                 std::allocator_traits<Allocator>::deallocate(_alloc, _data, _capacity);
                 _size = _capacity = 0;
                 _data = nullptr;
+                std::cerr << e.what() << std::endl;
                 throw;
             }
         }
@@ -215,7 +225,7 @@ public:
 
         _data = std::allocator_traits<Allocator>::allocate(_alloc, _capacity);
 
-        size_type i = 0;
+        idx_t i = 0;
         try
         {
             for (; i < _size; i++)
@@ -223,20 +233,22 @@ public:
         }
         catch (const std::exception& e)
         {
-            for (size_type j = 0; j < i; j++)
+            for (idx_t j = 0; j < i; j++)
                 std::allocator_traits<Allocator>::destroy(_alloc, _data + j);
 
             std::allocator_traits<Allocator>::deallocate(_alloc, _data, _capacity);
             _size = _capacity = 0;
             _data = nullptr;
+            std::cerr << e.what() << std::endl;
             throw;
         }
     }
 
     constexpr nuo_vector(nuo_vector &&nv) noexcept
-        : _size(nv._size),
-            _capacity(nv._capacity),
-            _alloc(std::move(nv._alloc))
+        : _data(nv._data),
+          _size(nv._size),
+          _capacity(nv._capacity),
+          _alloc(std::move(nv._alloc))
     {
         nv._data = nullptr, nv._size = nv._capacity = 0;
     }
@@ -253,7 +265,7 @@ public:
 
         _data = std::allocator_traits<Allocator>::allocate(_alloc, _capacity);
 
-        size_type i = 0;
+        idx_t i = 0;
         try
         {
             for (; i < _size; i++)
@@ -261,12 +273,13 @@ public:
         }
         catch (const std::exception& e)
         {
-            for (size_type j = 0; j < i; j++)
+            for (idx_t j = 0; j < i; j++)
                 std::allocator_traits<Allocator>::destroy(_alloc, _data + j);
 
             std::allocator_traits<Allocator>::deallocate(_alloc, _data, _capacity);
             _size = _capacity = 0;
             _data = nullptr;
+            std::cerr << e.what() << std::endl;
             throw;
         }
     }
@@ -291,7 +304,7 @@ public:
 
             _data = std::allocator_traits<Allocator>::allocate(_alloc, _capacity);
 
-            size_type i = 0;
+            idx_t i = 0;
             try
             {
                 for (; i < _size; i++)
@@ -300,12 +313,13 @@ public:
             }
             catch (const std::exception& e)
             {
-                for (size_type j = 0; j < i; j++)
+                for (idx_t j = 0; j < i; j++)
                     std::allocator_traits<Allocator>::destory(_alloc, _data + i);
 
                 std::allocator_traits<Allocator>::deallocate(_alloc, _data, _capacity);
                 _size = _capacity = 0;
                 _data = nullptr;
+                std::cerr << e.what() << std::endl;
                 throw;
             }
         }
@@ -325,7 +339,7 @@ public:
 
         _data = std::allocator_traits<Allocator>::allocate(_alloc, _capacity);
 
-        size_type i = 0;
+        idx_t i = 0;
         try
         {
             for (auto it = il.begin(); it != il.end(); it++, i++)
@@ -333,12 +347,13 @@ public:
         }
         catch (const std::exception& e)
         {
-            for (size_type j = 0; j < i; j++)
+            for (idx_t j = 0; j < i; j++)
                 std::allocator_traits<Allocator>::destroy(_alloc, _data + j);
 
             std::allocator_traits<Allocator>::deallocate(_alloc, _data, _capacity);
             _size = _capacity = 0;
             _data = nullptr;
+            std::cerr << e.what() << std::endl;
             throw;
         }
     }
@@ -347,8 +362,10 @@ public:
     {
         if (_data != nullptr)
         {
-            for (size_type i = 0; i < _size; i++)
+            for (idx_t i = 0; i < _size; i++)
+            {
                 std::allocator_traits<Allocator>::destroy(_alloc, _data + i);
+            }
             
                 std::allocator_traits<Allocator>::deallocate(_alloc, _data, _capacity);
         }
@@ -359,63 +376,32 @@ public:
 
     constexpr nuo_vector &operator=(const nuo_vector &nv)
     {
-        if (_capacity < nv._size)
+        if (this == &nv)
+            return *this;
+
+        for (idx_t i = 0; i < _size; i++)
+            std::allocator_traits<Allocator>::destroy(_alloc, _data + i);
+
+        _alloc = nv.get_allocator();
+        reserve(nv.capacity());
+        _size = nv.size();
+
+        idx_t i = 0;
+        try
         {
-            for (size_type i = 0; i < _size; i++)
-                std::allocator_traits<Allocator>::destroy(_alloc, _data + i);
-            
-            std::allocator_traits<Allocator>::deallocate(_alloc, _data, _capacity);
-
-            _capacity = nv._capacity, _size = nv._size;
-            
-            _data = std::allocator_traits<Allocator>::allocate(_alloc, _capacity);
-
-            size_type i = 0;
-            try
-            {
-                for (; i < _size; i++)
-                    std::allocator_traits<Allocator>::construct(_alloc, _data + i, nv._data[i]);
-            }
-            catch (const std::exception& e)
-            {
-                for (size_type j = 0; j < i; j++)
-                    std::allocator_traits<Allocator>::destroy(_alloc, _data + j);
-                
-                std::allocator_traits<Allocator>::deallocate(_alloc, _data, _capacity);
-                _size = _capacity = 0;
-                throw;
-            }
+            for (; i < _size; i++)
+                std::allocator_traits<Allocator>::construct(_alloc, _data + i, nv[i]);
         }
-        else
+        catch(const std::exception& e)
         {
-            for (size_type i = 0; i < nuo_min(_size, nv._size); i++)
-                _data[i] = nv._data[i];
-            
-            if (_size > nv._size)
-            {
-                for (size_type i = nv._size; i < _size; i++)
-                    std::allocator_traits<Allocator>::destroy(_alloc, _data + i);
-            }
-            else if (_size < nv._size)
-            {
-                size_type i = _size;
-                try
-                {
-                    for (; i < nv._size; i++)
-                        std::allocator_traits<Allocator>::construct(
-                            _alloc, _data + i, nv._data[i]);
-                }
-                catch (const std::exception& e)
-                {
-                    for (size_type j = 0; j < i; j++)
-                        std::allocator_traits<Allocator>::destroy(_alloc, _data + j);
-                    
-                    std::allocator_traits<Allocator>::deallocate(_alloc, _data, _capacity);
-                    _size = _capacity = 0;
-                    _data = nullptr;
-                    throw;
-                }
-            }
+            for (idx_t j = 0; j < i; j++)
+                std::allocator_traits<Allocator>::destroy(_alloc, _data + j);
+
+            std::allocator_traits<Allocator>::deallocate(_alloc, _data, _capacity);
+            _size = _capacity = 0;
+            _data = nullptr;
+            std::cerr << e.what() << std::endl;
+            throw;
         }
 
         return *this;
@@ -428,7 +414,7 @@ public:
         if (this == &nv)
             return *this;
 
-        for (size_type i = 0; i < _size; i++)
+        for (idx_t i = 0; i < _size; i++)
             std::allocator_traits<Allocator>::destroy(_alloc, _data + i);
 
         constexpr bool propagate =
@@ -441,7 +427,7 @@ public:
         {
             if (_data != nullptr)
             {
-                for (size_type i = 0; i < _size; i++)
+                for (idx_t i = 0; i < _size; i++)
                     std::allocator_traits<Allocator>::destroy(_alloc, _data + i);
                 
                 std::allocator_traits<Allocator>::deallocate(_alloc, _data, _capacity);
@@ -450,23 +436,23 @@ public:
 
             _alloc = std::move(nv._alloc);
             _data = nv._data, _size = nv._size, _capacity = nv._capacity;
-            _data = nullptr, nv._size = nv._capacity = 0;
+            nv._data = nullptr, nv._size = nv._capacity = 0;
         }
         else
         {
             if (_capacity >= nv._size)
             {
-                for (size_type i = 0; i < nuo_min(_size, nv._size); i++)
+                for (idx_t i = 0; i < nuo_min(_size, nv._size); i++)
                     _data[i] = std::move(nv._data[i]);
                 
                 if (_size > nv._size)
                 {
-                    for (size_type i = nv._size; i < _size; i++)
+                    for (idx_t i = nv._size; i < _size; i++)
                         std::allocator_traits<Allocator>::destroy(_alloc, _data + i);
                 }
                 else if (_size < nv._size)
                 {
-                    size_type i = _size;
+                    idx_t i = _size;
                     try
                     {
                         for (; i < nv._size; i++)
@@ -475,13 +461,13 @@ public:
                     }
                     catch(const std::exception& e)
                     {
-                        for (size_type j = 0; j < i; j++)
+                        for (idx_t j = 0; j < i; j++)
                             std::allocator_traits<Allocator>::destroy(_alloc, _data + j);
 
                         std::allocator_traits<Allocator>::deallocate(_alloc, _data, _capacity);
                         _size = _capacity = 0;
                         _data = nullptr;
-                        throw;
+                        std::cerr << e.what() << std::endl;
                     }
                 }
                 _size = nv._size;
@@ -490,7 +476,7 @@ public:
             {
                 if (_data != nullptr)
                 {
-                    for (size_type i = 0; i < _size; i++)
+                    for (idx_t i = 0; i < _size; i++)
                         std::allocator_traits<Allocator>::destroy(_alloc, _data + i);
                     
                     std::allocator_traits<Allocator>::deallocate(_alloc, _data, _capacity);
@@ -501,7 +487,7 @@ public:
 
                 _data = std::allocator_traits<Allocator>::allocate(_alloc, _capacity);
 
-                size_type i = 0;
+                idx_t i = 0;
                 try
                 {
                     for (; i < _size; i++)
@@ -510,16 +496,18 @@ public:
                 }
                 catch (const std::exception& e)
                 {
-                    for (size_type j = 0; j < i; j++)
+                    for (idx_t j = 0; j < i; j++)
                         std::allocator_traits<Allocator>::destroy(_alloc, _data + j);
 
                     std::allocator_traits<Allocator>::deallocate(_alloc, _data, _capacity);
                     _size = _capacity = 0;
                     _data = nullptr;
-                    throw;
+                    std::cerr << e.what() << std::endl;
                 }   
             }
         }
+
+        return *this;
     }
 
     constexpr nuo_vector &operator=(std::initializer_list<T> il)
@@ -536,7 +524,7 @@ public:
 
         _data = std::allocator_traits<Allocator>::allocate(_alloc, _capacity);
 
-        size_type i = 0;
+        idx_t i = 0;
         try
         {
             for (auto it = il.begin(); it != il.end(); it++, i++)
@@ -544,234 +532,106 @@ public:
         }
         catch (const std::exception& e)
         {
-            for (size_type j = 0; j < i; j++)
+            for (idx_t j = 0; j < i; j++)
                 std::allocator_traits<Allocator>::destroy(_alloc, _data + j);
 
             std::allocator_traits<Allocator>::deallocate(_alloc, _data, _capacity);
             _size = _capacity = 0;
             _data = nullptr;
+            std::cerr << e.what() << std::endl;
             throw;
         }
 
         return *this;
     }
 
-    template <class InputIter>
+    template <
+        typename InputIter,
+        typename = typename std::enable_if<!std::is_integral<InputIter>::value>::type
+    >
     constexpr void assign(InputIter first, InputIter last)
     {
         if (first > last)
             throw std::length_error("nuo_vector: first is smaller than or equal to last");
 
-        if (_size + last - first > _capacity)
+        size_t n = std::distance(first, last);
+
+        if (n > _capacity)
         {
-            size_type new_capacity =
-                _size + last - first > 0 ?
-                (_size + last - first + _capacity - 1)  / _capacity * _capacity :
-                1;
+            size_t new_capacity =
+                _capacity ? (n + _capacity - 1)  / _capacity * _capacity : n;
             reserve(new_capacity);
         }
 
-        if (_capacity < last - first)
+        for (idx_t i = 0; i < _size; i++)
+            std::allocator_traits<Allocator>::destroy(_alloc, _data + i);
+        
+        idx_t i = 0;
+        try
         {
-            for (size_type i = 0; i < _size; i++)
-                std::allocator_traits<Allocator>::destroy(_alloc, _data + i);
-
-            if (_data != nullptr)
-                std::allocator_traits<Allocator>::deallocate(_alloc, _data, _capacity);
-
-            _capacity = _size = last - first;
-            _data = std::allocator_traits<Allocator>::allocate(_alloc, _capacity);
-
-            size_type i = 0;
-            try
-            {
-                for (InputIter it = first; it != last; it++, i++)
-                    std::allocator_traits<Allocator>::construct(_alloc, _data + i, *it);
-            }
-            catch (const std::exception& e)
-            {
-                for (size_type j = 0; j < i; j++)
-                    std::allocator_traits<Allocator>::destroy(_alloc, _data + j);
-
-                std::allocator_traits<Allocator>::deallocate(_alloc, _data, _capacity);
-                _size = _capacity = 0;
-                _data = nullptr;
-                throw;
-            }
+            for (auto it = first; it != last && i < n; it++, i++)
+                std::allocator_traits<Allocator>::construct(_alloc, _data + i, *it);
         }
-        else
+        catch(const std::exception& e)
         {
-            using iter_value_type = typename std::iterator_traits<InputIter>::value_type;
-
-            if constexpr (std::is_copy_assignable_v<iter_value_type>)
-            {
-                InputIter it = first;
-                for (size_type i = 0; i < nuo_min(_size, last - first); i++, it++)
-                    _data[i] = *it;
-
-                if (_size > last - first)
-                {
-                    for (size_type i = _size; i < last - first; i++)
-                        std::allocator_traits<Allocator>::destroy(_alloc, _data + i);
-                }
-                else if (_size < last - first)
-                {
-                    size_type i = _size;
-                    try
-                    {
-                        for (; it != last && i < _capacity; it++, i++)
-                            std::allocator_traits<Allocator>::construct(_alloc, _data + i, *it);
-                    }
-                    catch (const std::exception& e)
-                    {
-                        for (size_type j = 0; j < i; j++)
-                            std::allocator_traits<Allocator>::destroy(_alloc, _data + j);
-
-                        std::allocator_traits<Allocator>::deallocate(_alloc, _data, _capacity);
-                        _size = _capacity = 0;
-                        _data = nullptr;
-                        throw;
-                    }
-                }
-            }
-            else
-            {
-                for (size_type i = 0; i < _size; i++)
-                    std::allocator_traits<Allocator>::destroy(_alloc, _data + i);
-                
-                size_type i = 0;
-                try
-                {
-                    for (InputIter it = first; it != last && i < _capacity; it++, i++)
-                        std::allocator_traits<Allocator>::construct(_alloc, _data + i, *it);
-                }
-                catch (const std::exception& e)
-                {
-                    for (size_type j = 0; j < i; j++)
-                        std::allocator_traits<Allocator>::destroy(_alloc, _data + j);
-
-                    std::allocator_traits<Allocator>::deallocate(_alloc, _data, _capacity);
-                    _size = _capacity = 0;
-                    _data = nullptr;
-                    throw;
-                }
-            }
-
-            _size = last - first;
+            for (idx_t j = 0; j < i; j++)
+                std::allocator_traits<Allocator>::destroy(_alloc, _data + j);
+            std::allocator_traits<Allocator>::deallocate(_alloc, _data, _capacity);
+            _size = _capacity = 0, _data = nullptr;
+            std::cerr << e.what() << std::endl;
         }
+
+        _size = n;        
     }
 
     template <std::ranges::input_range R>
     constexpr void assign_range(R &&rg)
     {
         /* get the size of range */
-        size_type n;
+        size_t n;
         if constexpr (std::ranges::sized_range<R>)
             n = std::ranges::size(rg);
         else
             n = std::ranges::distance(rg);
 
-        if (_capacity < n)
+        for (idx_t i = 0; i < _size; i++)
+            std::allocator_traits<Allocator>::destroy(_alloc, _data + i);
+        _size = 0;
+
+        size_t new_capacity =
+            _capacity ? (n + _capacity - 1) / _capacity * _capacity : n;
+        reserve(new_capacity);
+
+        idx_t i = _size;
+        try
         {
-            for (size_type i = 0; i < _size; i++)
-                std::allocator_traits<Allocator>::destroy(_alloc, _data + i);
-
-            std::allocator_traits<Allocator>::deallocte(_alloc, _data, _capacity);
-
-            _size = _capacity = n;
-
-            _data = std::allocator_traits<Allocator>::allocate(_alloc, _capacity);
-
-            size_type i = 0;
-            try
-            {
-                auto first = std::ranges::begin(rg), last = std::ranges::end(rg);
-                for (auto it = first; it != last && i < _capacity; it++, i++)
-                    std::allocator_traits<Allocator>::construct(_alloc, _data + i, *it);
-            }
-            catch (const std::exception& e)
-            {
-                for (size_type j = 0; j < i; j++)
-                    std::allocator_traits<Allocator>::destroy(_alloc, _data + j);
-
-                std::allocator_traits<Allocator>::deallocate(_alloc, _data, _capacity);
-                _size = _capacity = 0;
-                _data = nullptr;
-                throw;
-            }
-        }
-        else
-        {
-            using range_value_type = std::ranges::range_value_t<R>;
             auto first = std::ranges::begin(rg), last = std::ranges::end(rg);
-
-            if constexpr (std::is_copy_assignable_v<range_value_type>)
-            {
-                auto it = first;
-                for (size_type i = 0; i < nuo_min(_size, n); i++, it++)
-                    _data[i] = *it;
-
-                if (_size > n)
-                {
-                    for (size_type i = n; i < _size; i++)
-                        std::allocator_traits<Allocator>::destroy(_alloc, _data + i);
-                }
-                else if (_size < n)
-                {
-                    size_type i = _size;
-                    try
-                    {
-                        for (; i < n; i++, it++)
-                            std::allocator_traits<Allocator>::construct(_alloc, _data + i, *it);
-                    }
-                    catch (const std::exception& e)
-                    {
-                        for (size_type j = 0; j < i; j++)
-                            std::allocator_traits<Allocator>::destroy(_alloc, _data + j);
-
-                        std::allocator_traits<Allocator>::deallocate(_alloc, _data, _capacity);
-                        _size = _capacity = 0;
-                        _data = nullptr;
-                        throw;
-                    }
-                    
-                }
-            }
-            else
-            {
-                for (size_type i = 0; i < _size; i++)
-                    std::allocator_traits<Allocator>::destroy(_alloc, _data + i);
-                
-                size_type i = 0;
-                try
-                {
-                    for (auto it = first; i < n; i++, it++)
-                        std::allocator_traits<Allocator>::construct(_alloc, _data + i, *it);
-                }
-                catch (const std::exception& e)
-                {
-                    for (size_type j = 0; j < i; j++)
-                        std::allocator_traits<Allocator>::destroy(_alloc, _data + j);
-
-                    std::allocator_traits<Allocator>::deallocate(_alloc, _data, _capacity);
-                    _size = _capacity = 0;
-                    _data = nullptr;
-                    throw;
-                }
-            }
-
-            _size = n;
+            for (auto it = first; it != last; it++, i++)
+                std::allocator_traits<Allocator>::construct(_alloc, _data + i, *it);
         }
+        catch(const std::exception& e)
+        {
+            for (idx_t j = 0; j < i; j++)
+                std::allocator_traits<Allocator>::destroy(_alloc, _data + j);
+
+            std::allocator_traits<Allocator>::deallocate(_alloc, _data, _capacity);
+            _data = nullptr;
+            _size = _capacity = 0;
+            std::cerr << e.what() << std::endl;
+            throw;
+        }
+        
+        _size += n;
     }
 
-    constexpr void assign(size_type n, const T &u)
+    constexpr void assign(size_t n, const T &u)
     {
         if (n < 0)
             throw std::length_error("nuo_vector: n is negative");
 
         if (_capacity < n)
         {
-            for (size_type i = 0; i < _size; i++)
+            for (idx_t i = 0; i < _size; i++)
                 std::allocator_traits<Allocator>::destroy(_alloc, _data + i);
 
             if (_data != nullptr)
@@ -780,7 +640,7 @@ public:
             _capacity = _size = n;
             _data = std::allocator_traits<Allocator>::allocate(_alloc, _capacity);
 
-            size_type i = 0;
+            idx_t i = 0;
             try
             {
                 for (; i < _size; i++)
@@ -788,12 +648,13 @@ public:
             }
             catch (const std::exception& e)
             {
-                for (size_type j = 0; j < i; j++)
+                for (idx_t j = 0; j < i; j++)
                     std::allocator_traits<Allocator>::destroy(_alloc, _data + j);
 
                 std::allocator_traits<Allocator>::deallocate(_alloc, _data, _capacity);
                 _size = _capacity = 0;
                 _data = nullptr;
+                std::cerr << e.what() << std::endl;
                 throw;
             }
         }
@@ -801,17 +662,17 @@ public:
         {
             if constexpr (std::is_copy_assignable_v<T>)
             {
-                for (size_type i = 0; i < nuo_min(_size, n); i++)
+                for (idx_t i = 0; i < nuo_min(_size, n); i++)
                     _data[i] = u;
 
                 if (_size > n)
                 {
-                    for (size_type i = _size; i < n; i++)
+                    for (idx_t i = _size; i < n; i++)
                         std::allocator_traits<Allocator>::destroy(_alloc, _data + i);
                 }
                 else if (_size < n)
                 {
-                    size_type i = _size;
+                    idx_t i = _size;
                     try
                     {
                         for (; i < n; i++)
@@ -819,22 +680,23 @@ public:
                     }
                     catch (const std::exception& e)
                     {
-                        for (size_type j = 0; j < i; j++)
+                        for (idx_t j = 0; j < i; j++)
                             std::allocator_traits<Allocator>::destroy(_alloc, _data);
 
                         std::allocator_traits<Allocator>::deallocate(_alloc, _data, _capacity);
                         _size = _capacity = 0;
                         _data = nullptr;
+                        std::cerr << e.what() << std::endl;
                         throw;
                     }
                 }
             }
             else
             {
-                for (size_type i = 0; i < _size; i++)
+                for (idx_t i = 0; i < _size; i++)
                     std::allocator_traits<Allocator>::destroy(_alloc, _data + i);
 
-                size_type i = 0;
+                idx_t i = 0;
                 try
                 {
                     for (; i < n; i++)
@@ -842,12 +704,13 @@ public:
                 }
                 catch (const std::exception& e)
                 {
-                    for (size_type j = 0; j < i; j++)
+                    for (idx_t j = 0; j < i; j++)
                         std::allocator_traits<Allocator>::destroy(_alloc, _data);
 
                     std::allocator_traits<Allocator>::deallocate(_alloc, _data, _capacity);
                     _size = _capacity = 0;
                     _data = nullptr;
+                    std::cerr << e.what() << std::endl;
                     throw;
                 }
             }
@@ -858,11 +721,11 @@ public:
 
     constexpr void assign(std::initializer_list<T> il)
     {
-        size_type n = il.size();
+        size_t n = il.size();
 
         if (_capacity < n)
         {
-            for (size_type i = 0; i < _size; i++)
+            for (idx_t i = 0; i < _size; i++)
                 std::allocator_traits<Allocator>::destroy(_alloc, _data + i);
 
             if (_data != nullptr)
@@ -871,7 +734,7 @@ public:
             _capacity = _size = n;
             _data = std::allocator_traits<Allocator>::allocate(_alloc, _capacity);
 
-            size_type i = 0;
+            idx_t i = 0;
             try
             {
                 for (auto it = il.begin(); i < _size && it != il.end(); i++, it++)
@@ -879,12 +742,13 @@ public:
             }
             catch (const std::exception& e)
             {
-                for (size_type j = 0; j < i; j++)
+                for (idx_t j = 0; j < i; j++)
                     std::allocator_traits<Allocator>::destroy(_alloc, _data + j);
 
                 std::allocator_traits<Allocator>::deallocate(_alloc, _data, _capacity);
                 _size = _capacity = 0;
                 _data = nullptr;
+                std::cerr << e.what() << std::endl;
                 throw;
             }
         }
@@ -894,17 +758,17 @@ public:
 
             if constexpr (std::is_copy_assignable_v<T>)
             {
-                for (size_type i = 0; i < nuo_min(_size, n) && it != il.end(); i++, it++)
+                for (idx_t i = 0; i < nuo_min(_size, n) && it != il.end(); i++, it++)
                     _data[i] = *it;
 
                 if (_size > n)
                 {
-                    for (size_type i = _size; i < n; i++)
+                    for (idx_t i = _size; i < n; i++)
                         std::allocator_traits<Allocator>::destroy(_alloc, _data + i);
                 }
                 else if (_size < n)
                 {
-                    size_type i = _size;
+                    idx_t i = _size;
                     try
                     {
                         for (; i < n && it != il.end(); i++, it++)
@@ -912,22 +776,23 @@ public:
                     }
                     catch (const std::exception& e)
                     {
-                        for (size_type j = 0; j < i; j++)
+                        for (idx_t j = 0; j < i; j++)
                             std::allocator_traits<Allocator>::destroy(_alloc, _data);
 
                         std::allocator_traits<Allocator>::deallocate(_alloc, _data, _capacity);
                         _size = _capacity = 0;
                         _data = nullptr;
+                        std::cerr << e.what() << std::endl;
                         throw;
                     }
                 }
             }
             else
             {
-                for (size_type i = 0; i < _size; i++)
+                for (idx_t i = 0; i < _size; i++)
                     std::allocator_traits<Allocator>::destroy(_alloc, _data + i);
 
-                size_type i = 0;
+                idx_t i = 0;
                 try
                 {
                     for (; i < n && it != il.end(); i++, it++)
@@ -935,12 +800,13 @@ public:
                 }
                 catch (const std::exception& e)
                 {
-                    for (size_type j = 0; j < i; j++)
+                    for (idx_t j = 0; j < i; j++)
                         std::allocator_traits<Allocator>::destroy(_alloc, _data);
 
                     std::allocator_traits<Allocator>::deallocate(_alloc, _data, _capacity);
                     _size = _capacity = 0;
                     _data = nullptr;
+                    std::cerr << e.what() << std::endl;
                     throw;
                 }
             }
@@ -1020,112 +886,87 @@ public:
     /* capacity */
     constexpr bool empty() const noexcept
     {
-        if (this == nullptr)
+        if (this->_data == nullptr)
             return true;
 
         return _size == 0;
     }
 
-    constexpr size_type size() const noexcept
+    constexpr size_t size() const noexcept
     {
-        if (this == nullptr)
-            return (size_type) 0;
-
         return _size;
     }
 
-    constexpr size_type max_size() const noexcept
+    constexpr size_t max_size() const noexcept
     {
-        return std::allocator<Allocator>::max_size(_alloc);
+        return std::allocator_traits<Allocator>::max_size(_alloc);
     }
 
-    constexpr size_type capacity() const noexcept
+    constexpr size_t capacity() const noexcept
     {
-        if (this == nullptr)
-            return (size_type) 0;
-
         return _capacity;
     }
 
-    constexpr void resize(size_type sz)
+    constexpr void resize(size_t sz)
     {
-        if (sz < _size)
+        reserve(sz);
+        
+        idx_t i = _size;
+        try
         {
-            for (size_type i = sz; i < _size; i++)
-                std::allocator_traits<Allocator>::destroy(_alloc, _data + i);
+            for (; i < sz; i++)
+                std::allocator_traits<Allocator>::construct(_alloc, _data + i);
         }
-        else if (sz > _size)
+        catch (const std::exception& e)
         {
-            reserve(sz);
+            for (idx_t j = _size; j < i; j++)
+                std::allocator_traits<Allocator>::destroy(_alloc, _data + j);
+
+            std::allocator_traits<Allocator>::deallocate(_alloc, _data, _capacity);
+            _data = nullptr;
+            _size = _capacity = 0;
+            std::cerr << e.what() << std::endl;
+            throw;
         }
+
         _size = sz;
     }
 
-    constexpr void resize(size_type sz, const T &c)
+    constexpr void resize(size_t sz, const T &c)
     {
-        if (sz < _size)
+        reserve(sz);
+
+        idx_t i = _size;
+        try
         {
-            for (size_type i = sz; i < _size; i++)
-                std::allocator_traits<Allocator>::destroy(_alloc, _data + i);
-
-            _size = sz;
+            for (; i < sz; i++)
+                std::allocator_traits<Allocator>::construct(_alloc, _data + i, c);
         }
-        else if (sz > _size)
+        catch (const std::exception& e)
         {
-            size_type new_capacity = sz;
-            if (new_capacity > _capacity)
-            {
-                pointer new_data =
-                    std::allocator_traits<Allocator>::allocate(_alloc, new_capacity);
+            for (idx_t j = _size; j < i; j++)
+                std::allocator_traits<Allocator>::destroy(_alloc, _data + j);
 
-                size_type i = 0;
-                try
-                {
-                    for (; i < _size; i++)
-                    {
-                        std::allocator_traits<Allocator>::construct(_alloc, new_data + i, c);
-                        std::allocator_traits<Allocator>::destroy(_alloc, _data + i);
-                    }
-                    for (; i < sz; i++)
-                        std::allocator_traits<Allocator>::construct(_alloc, new_data + i, c);
-                }
-                catch (const std::exception& e)
-                {
-                    for (size_type j = 0; j < i; j++)
-                        std::allocator_traits<Allocator>::destroy(_alloc, new_data + j);
-
-                    for (size_type j = i; j < _size; j++)
-                        std::allocator_traits<Allocator>::destroy(_alloc, _data + j);
-
-                    std::allocator_traits<Allocator>::deallocate(_alloc, _data, _capacity);
-                    std::allocator_traits<Allocator>::deallocate(_alloc, new_data, new_capacity);
-                    _data = new_data = nullptr;
-                    _capacity = _size = 0;
-                    throw;
-                }
-
-                std::allocator_traits<Allocator>::deallocate(_alloc, _data, _capacity);
-                _data = new_data, new_data = nullptr;
-                _capacity = new_capacity;
-            }
-
-            for (size_type i = _size; i < sz; i++)
-                std::allocator_traits<Allocator>::construct(_alloc, _data + i);
-
-            _size = sz;
+            std::allocator_traits<Allocator>::deallocate(_alloc, _data, _capacity);
+            _data = nullptr;
+            _size = _capacity = 0;
+            std::cerr << e.what() << std::endl;
+            throw;
         }
+
+        _size = sz;
     }
 
-    constexpr void reserve(size_type n)
+    constexpr void reserve(size_t n)
     {
         if (_capacity >= n)
             return;
         
-        size_type new_capacity = n;
+        size_t new_capacity = n;
 
         pointer new_data = std::allocator_traits<Allocator>::allocate(_alloc, new_capacity);
 
-        size_type i = 0;
+        idx_t i = 0;
         try
         {
             for (; i < _size; i++)
@@ -1136,11 +977,12 @@ public:
         }
         catch (const std::exception& e)
         {
-            for (int j = 0; j < i; j++)
+            for (idx_t j = 0; j < i; j++)
                 std::allocator_traits<Allocator>::destroy(_alloc, new_data + j);
             
-            std::allocator_traits<Allocator>::deallocate(new_data, new_capacity);
+            std::allocator_traits<Allocator>::deallocate(_alloc, new_data, new_capacity);
             new_data = nullptr;
+            std::cerr << e.what() << std::endl;
             throw;
         }
 
@@ -1153,19 +995,19 @@ public:
     {
         if (_size == 0)
         {
-            std::allocator_traits<Allocator>::deallocate(_alloc, _capacity);
+            std::allocator_traits<Allocator>::deallocate(_alloc, _data, _capacity);
             _data = nullptr;
             _size = _capacity = 0;
             return;
         }
 
-        size_type new_capacity = _size;
+        size_t new_capacity = _size;
         if (_capacity == new_capacity)
             return;
 
         pointer new_data = std::allocator_traits<Allocator>::allocate(_alloc, new_capacity);
 
-        size_type i = 0;
+        idx_t i = 0;
         try
         {
             for (; i < _size; i++)
@@ -1176,13 +1018,14 @@ public:
         }
         catch (const std::exception& e)
         {
-            for (size_type j = 0; j < i; j++)
-                std::allocator_traits<Allocator>::destory(_alloc, new_data + j);
+            for (idx_t j = 0; j < i; j++)
+                std::allocator_traits<Allocator>::destroy(_alloc, new_data + j);
             
             std::allocator_traits<Allocator>::deallocate(_alloc, new_data, new_capacity);
             std::allocator_traits<Allocator>::deallocate(_alloc, _data, _capacity);
             _data = new_data = nullptr;
             _size = _capacity = 0;
+            std::cerr << e.what() << std::endl;
             throw;
         }
 
@@ -1191,7 +1034,7 @@ public:
 
 
     /* element access */
-    constexpr reference operator[](size_type n)
+    constexpr reference operator[](size_t n)
     {
         if (n < 0)
             throw std::out_of_range(
@@ -1207,7 +1050,7 @@ public:
         return _data[n];
     }
 
-    constexpr const_reference operator[](size_type n) const
+    constexpr const_reference operator[](size_t n) const
     {
         if (n < 0)
             throw std::out_of_range(
@@ -1223,7 +1066,7 @@ public:
         return _data[n];
     }
 
-    constexpr const_reference at(size_type n) const
+    constexpr const_reference at(size_t n) const
     {
         if (n < 0)
             throw std::out_of_range(
@@ -1239,7 +1082,7 @@ public:
         return _data[n];
     }
 
-    constexpr reference at(size_type n)
+    constexpr reference at(size_t n)
     {
         if (n < 0)
             throw std::out_of_range(
@@ -1272,7 +1115,7 @@ public:
 
     constexpr const_reference back() const
     {
-        return *prev(_data + _size - 1);
+        return *(_data + _size - 1);
     }
 
 
@@ -1300,7 +1143,7 @@ public:
     {
         if (_size >= _capacity)
         {
-            size_type new_capacity = (_capacity > 0) ? (_capacity << 1) : 1;
+            size_t new_capacity = _capacity ? (_capacity << 1) : 1;
             reserve(new_capacity);
         }
 
@@ -1311,12 +1154,13 @@ public:
         }
         catch (const std::exception& e)
         {
-            for (size_type i = 0; i <= _size; i++)
+            for (idx_t i = 0; i <= _size; i++)
                 std::allocator_traits<Allocator>::destroy(_alloc, _data + i);
 
             std::allocator_traits<Allocator>::deallocate(_alloc, _data, _capacity);
             _size = _capacity = 0;
             _data = nullptr;
+            std::cerr << e.what() << std::endl;
             throw;
         }
         
@@ -1329,7 +1173,7 @@ public:
     {
         if (_size >= _capacity)
         {
-            size_type new_capacity = (_capacity > 0) ? (_capacity << 1) : 1;
+            size_t new_capacity = _capacity > 0 ? (_capacity << 1) : 1;
             reserve(new_capacity);
         }
 
@@ -1339,12 +1183,13 @@ public:
         }
         catch (const std::exception& e)
         {
-            for (size_type i = 0; i < _size; i++)
+            for (idx_t i = 0; i < _size; i++)
                 std::allocator_traits<Allocator>::destroy(_alloc, _data + i);
 
             std::allocator_traits<Allocator>::deallocate(_alloc, _data, _capacity);
             _size = _capacity = 0;
             _data = nullptr;
+            std::cerr << e.what() << std::endl;
             throw;
         }
 
@@ -1355,7 +1200,7 @@ public:
     {
         if (_size >= _capacity)
         {
-            size_type new_capacity = (_capacity > 0) ? (_capacity << 1) : 1;
+            size_t new_capacity = _capacity ? (_capacity << 1) : 1;
             reserve(new_capacity);
         }
 
@@ -1365,12 +1210,13 @@ public:
         }
         catch (const std::exception& e)
         {
-            for (size_type i = 0; i < _size; i++)
+            for (idx_t i = 0; i < _size; i++)
                 std::allocator_traits<Allocator>::destroy(_alloc, _data + i);
 
             std::allocator_traits<Allocator>::deallocate(_alloc, _data, _capacity);
             _size = _capacity = 0;
             _data = nullptr;
+            std::cerr << e.what() << std::endl;
             throw;
         }
 
@@ -1380,7 +1226,7 @@ public:
     template <std::ranges::input_range R>
     constexpr void append_range(R &&rg)
     {
-        size_type n;
+        size_t n;
         if constexpr (std::ranges::sized_range<R>)
             n = std::ranges::size(rg);
         else
@@ -1388,12 +1234,12 @@ public:
 
         if (_size >= _capacity)
         {
-            size_type new_capacity =
-                (_size + n > 0) ? ((_size + _capacity + n - 1) / _capacity * _capacity) : 1;
+            size_t new_capacity =
+                _capacity ? ((_size + _capacity + n - 1) / _capacity * _capacity) : n;
             reserve(new_capacity);
         }
 
-        size_type i = _size;
+        idx_t i = _size;
         try
         {
             auto first = std::ranges::begin(rg), last = std::ranges::end(rg);
@@ -1403,12 +1249,13 @@ public:
         }
         catch(const std::exception& e)
         {
-            for (int j = 0; j < i; j++)
+            for (size_t j = 0; j < i; j++)
                 std::allocator_traits<Allocator>::destroy(_alloc, _data + j);
 
             std::allocator_traits<Allocator>::deallocate(_alloc, _data, _capacity);
             _size = _capacity = 0;
             _data = nullptr;
+            std::cerr << e.what() << std::endl;
             throw;
         }
 
@@ -1427,11 +1274,11 @@ public:
     template <class... Args>
     constexpr iterator emplace(const_iterator position, Args &&...args)
     {
-        size_type pos = position - _data;
+        size_t pos = position - _data;
 
         if (_size >= _capacity)
         {
-            size_type new_capacity = _capacity ? _capacity << 1 : 1;
+            size_t new_capacity = _capacity ? (_capacity << 1) : 1;
             reserve(new_capacity);
         }
 
@@ -1443,23 +1290,24 @@ public:
             }
             catch(const std::exception& e)
             {
-                for (size_type j = 0; j <= _size; j++)
+                for (idx_t j = 0; j <= _size; j++)
                     std::allocator_traits<Allocator>::destroy(_alloc, _data + j);
                 
                 std::allocator_traits<Allocator>::deallocate(_alloc, _data, _capacity);
                 _size = _capacity = 0;
                 _data = nullptr;
+                std::cerr << e.what() << std::endl;
                 throw;
             }
 
             if constexpr (std::is_copy_assignable_v<T>)
             {
-                for (size_type i = _size; i > pos; i--)
+                for (idx_t i = _size; i > pos; i--)
                     _data[i] = _data[i - 1];
             }
             else if constexpr (std::is_move_assignable_v<T>)
             {
-                for (size_type i = _size; i > pos; i--)
+                for (idx_t i = _size; i > pos; i--)
                     _data[i] = std::move(_data[i - 1]);
             }
 
@@ -1470,18 +1318,19 @@ public:
             }
             catch(const std::exception& e)
             {
-                for (size_type j = 0; j <= _size; j++)
+                for (idx_t j = 0; j <= _size; j++)
                     std::allocator_traits<Allocator>::destroy(_alloc, _data + j);
                 
                 std::allocator_traits<Allocator>::deallocate(_alloc, _data, _capacity);
                 _size = _capacity = 0;
                 _data = nullptr;
+                std::cerr << e.what() << std::endl;
                 throw;
             }
         }
         else
         {
-            size_type i = _size;
+            idx_t i = _size;
             try
             {
                 for (; i > pos; i--)
@@ -1493,26 +1342,29 @@ public:
             }
             catch(const std::exception& e)
             {
-                for (size_type j = 0; j < i; j++)
+                for (idx_t j = 0; j < i; j++)
                     std::allocator_traits<Allocator>::destroy(_alloc, _data + j);
-                for (size_type j = i + 1; j < _size; j++)
+                for (idx_t j = i + 1; j < _size; j++)
                     std::allocator_traits<Allocator>::destroy(_alloc, _data + j);
                 
                 std::allocator_traits<Allocator>::deallocate(_alloc, _data, _capacity);
                 _size = _capacity = 0;
                 _data = nullptr;
+                std::cerr << e.what() << std::endl;
                 throw;
             }
         }
+
+        return _data + pos;
     }
 
     constexpr iterator insert(const_iterator position, const T &x)
     {
-        size_type pos = position - _data;
+        size_t pos = position - _data;
 
         if (_size >= _capacity)
         {
-            size_type new_capacity = _capacity ? _capacity << 1 : 1;
+            size_t new_capacity = _capacity ? (_capacity << 1) : 1;
             reserve(new_capacity);
         }
 
@@ -1525,24 +1377,25 @@ public:
             }
             catch(const std::exception& e)
             {
-                for (size_type i = 0; i < _size; i++)
+                for (idx_t i = 0; i < _size; i++)
                     std::allocator_traits<Allocator>::destroy(_alloc, _data + i);
 
                 std::allocator_traits<Allocator>::deallocate(_alloc, _data, _capacity);
                 _size = _capacity = 0;
                 _data = nullptr;
+                std::cerr << e.what() << std::endl;
                 throw;
             }
 
             if constexpr (std::is_copy_assignable_v<T>)
             {
-                for (size_type i = _size - 1; i > pos; i--)
+                for (idx_t i = _size - 1; i > pos; i--)
                     _data[i] = _data[i - 1];
                 _data[pos] = x;
             }
             else if constexpr (std::is_move_assignable_v<T>)
             {
-                for (size_type i = _size - 1; i > pos; i--)
+                for (idx_t i = _size - 1; i > pos; i--)
                     _data[i] = std::move(_data[i - 1]);
                 _data[pos] = x;
             }
@@ -1550,7 +1403,7 @@ public:
         }
         else
         {
-            size_type i = _size;
+            idx_t i = _size;
             try
             {
                 for (; i > pos; i--)
@@ -1561,16 +1414,17 @@ public:
             }
             catch(const std::exception& e)
             {
-                for (size_type j = 0; j < i; j++)
+                for (idx_t j = 0; j < i; j++)
                     std::allocator_traits<Allocator>::destroy(_alloc, _data + j);
 
-                for (size_type j = i + 1; j <= _size; j++)
+                for (idx_t j = i + 1; j <= _size; j++)
                     std::allocator_traits<Allocator>::destroy(_alloc, _data + j);
 
                 std::allocator_traits<Allocator>::deallocate(_alloc, _data, _capacity);
                 
                 _size = _capacity = 0;
                 _data = nullptr;
+                std::cerr << e.what() << std::endl;
                 throw;
             }
 
@@ -1580,39 +1434,42 @@ public:
             }
             catch(const std::exception& e)
             {
-                for (size_type j = 0; j <= _size; j++)
+                for (idx_t j = 0; j <= _size; j++)
                     std::allocator_traits<Allocator>::destroy(_alloc, _data + j);
 
                 std::allocator_traits<Allocator>::deallocate(_alloc, _data, _capacity);
                 _size = _capacity = 0;
                 _data = nullptr;
+                std::cerr << e.what() << std::endl;
                 throw;
             }            
             
             _size++;
         }
+
+        return _data + pos;
     }
 
     constexpr iterator insert(const_iterator position, T &&x)
     {
         const T& nx = std::move(x);
-        insert(position, nx);
+        return insert(position, nx);
     }
 
-    constexpr iterator insert(const_iterator position, size_type n, const T &x)
+    constexpr iterator insert(const_iterator position, size_t n, const T &x)
     {
-        size_type pos = position - _data;
+        size_t pos = position - _data;
 
         if (_size + n >= _capacity)
         {
-            size_type new_capacity =
-                _size + n > 0 ? (_size + _capacity + n - 1) / _capacity * _capacity : 1;
+            size_t new_capacity =
+                _capacity > 0 ? (_size + _capacity + n - 1) / _capacity * _capacity : n;
             reserve(new_capacity);
         }
 
         if constexpr (std::is_copy_assignable_v<T> || std::is_move_assignable_v<T>)
         {
-            size_type i = _size;
+            idx_t i = _size;
             try
             {
                 for (; i < _size + n; i++)
@@ -1620,33 +1477,36 @@ public:
             }
             catch(const std::exception& e)
             {
-                for (size_type j = 0; j < i; j++)
+                for (idx_t j = 0; j < i; j++)
                     std::allocator_traits<Allocator>::destroy(_alloc, _data + j);
 
                 std::allocator_traits<Allocator>::deallocate(_alloc, _data, _capacity);
                 _size = _capacity = 0;
                 _data = nullptr;
+                std::cerr << e.what() << std::endl;
                 throw;
             }
 
             if constexpr (std::is_copy_assignable_v<T>)
             {
-                for (size_type i = _size - 1; i > pos; i--)
+                for (idx_t i = _size - 1; i >= pos; i--)
                     _data[i + n] = _data[i];
-                _data[pos] = x;
+                for (idx_t i = pos; i < pos + n; i++)
+                    _data[i] = x;
             }
             else if constexpr (std::is_move_assignable_v<T>)
             {
-                for (size_type i = _size - 1; i > pos; i--)
+                for (idx_t i = _size - 1; i >= pos; i--)
                     _data[i + n] = std::move(_data[i]);
-                _data[pos] = x;
+                for (idx_t i = pos; i < pos + n; i++)
+                    _data[i] = x;
             }
             
             _size += n;
         }
         else
         {
-            size_type i = _size - 1;
+            idx_t i = _size - 1;
             try
             {
                 for (; i > pos; i--)
@@ -1657,16 +1517,17 @@ public:
             }
             catch(const std::exception& e)
             {
-                for (size_type j = 0; j <= i; j++)
+                for (idx_t j = 0; j <= i; j++)
                     std::allocator_traits<Allocator>::destroy(_alloc, _data + j);
 
-                for (size_type j = i + n + 1; j <= _size; j++)
+                for (idx_t j = i + n + 1; j <= _size; j++)
                     std::allocator_traits<Allocator>::destroy(_alloc, _data + j);
 
                 std::allocator_traits<Allocator>::deallocate(_alloc, _data, _capacity);
 
                 _size = _capacity = 0;
                 _data = nullptr;
+                std::cerr << e.what() << std::endl;
                 throw;
             }
 
@@ -1678,38 +1539,44 @@ public:
             }
             catch(const std::exception& e)
             {
-                for (size_type j = 0; j < i; j++)
+                for (idx_t j = 0; j < i; j++)
                     std::allocator_traits<Allocator>::destroy(_alloc, _data + j);
 
-                for (size_type j = pos + n - 1; j < _size + n; j++)
+                for (idx_t j = pos + n - 1; j < _size + n; j++)
                     std::allocator_traits<Allocator>::destroy(_alloc, _data + j);
 
                 std::allocator_traits<Allocator>::deallocate(_alloc, _data, _capacity);
                 _size = _capacity = 0;
                 _data = nullptr;
+                std::cerr << e.what() << std::endl;
                 throw;
             }  
             
             _size += n;
         }
+
+        return _data + pos;
     }
     
-    template <typename InputIter>
+    template <
+        typename InputIter,
+        typename = typename std::enable_if<!std::is_integral<InputIter>::value>::type
+    >
     constexpr iterator insert(const_iterator position, InputIter first, InputIter last)
     {
         if (first >= last)
             throw std::length_error("nuo_vector: first is smaller or equal to last");
 
-        size_type n = last - first, pos = position - _data;
+        size_t n = std::distance(first, last), pos = position - _data;
 
         if (_size >= _capacity)
         {
-            size_type new_capacity =
-                (_size + n > 0) ? ((_size + _capacity + n - 1) / _capacity * _capacity) : 1;
+            size_t new_capacity =
+                _capacity ? ((_size + _capacity + n - 1) / _capacity * _capacity) : n;
             reserve(new_capacity);
         }
 
-        size_type i = _size - 1;
+        idx_t i = _size - 1;
         try
         {
             for (;i >= pos; i--)
@@ -1720,65 +1587,69 @@ public:
         }
         catch(const std::exception& e)
         {
-            for (size_type j = 0; j < i; j++)
+            for (idx_t j = 0; j < i; j++)
                 std::allocator_traits<Allocator>::destroy(_alloc, _data + j);
             
-            for (size_type j = _size + n - 1; j > _size + i; j--)
+            for (idx_t j = _size + n - 1; j > _size + i; j--)
                 std::allocator_traits<Allocator>::destroy(_alloc, _data + j);
             
             std::allocator_traits<Allocator>::deallocate(_alloc, _data, _capacity);
 
             _size = _capacity = 0;
             _data = nullptr;
+            std::cerr << e.what() << std::endl;
             throw;
         }
 
         i = pos;
         try
         {
-            for (InputIter it = first; it != last && i < pos + last - first; i++)
+            for (InputIter it = first; it != last && i < pos + n; it++, i++)
                 std::allocator_traits<Allocator>::construct(_alloc, _data + i, *it);
         }
         catch(const std::exception& e)
         {
-            for (size_type j = 0; j < i; j++)
+            for (idx_t j = 0; j < i; j++)
                 std::allocator_traits<Allocator>::destroy(_alloc, _data + j);
             
-            for (size_type j = _size + n - 1; j >= _size + pos; j--)
+            for (idx_t j = _size + n - 1; j >= _size + pos; j--)
                 std::allocator_traits<Allocator>::destroy(_alloc, _data + j);
             
             std::allocator_traits<Allocator>::deallocate(_alloc, _data, _capacity);
 
             _size = _capacity = 0;
             _data = nullptr;
+            std::cerr << e.what() << std::endl;
             throw;
         }
         
-        _size += last - first;
+        _size += n;
+
+        return _data + pos;
     }
 
     template <std::ranges::input_range R>
     constexpr iterator insert_range(const_iterator position, R &&rg)
     {
-        size_type n;
+        size_t n;
         if constexpr (std::ranges::sized_range<R>)
             n = std::ranges::size(rg);
         else
             n = std::ranges::distance(rg);
 
-        size_type pos = position - _data;
+        size_t pos = position - _data;
 
-        if (_size >= _capacity)
+        if (_size + n > _capacity)
         {
-            size_type new_capacity =
-                (_size + n > 0) ? ((_size + _capacity + n - 1) / _capacity * _capacity) : 1;
+            size_t new_capacity =
+                _capacity ? ((_size + _capacity + n - 1) / _capacity * _capacity) : n;
             reserve(new_capacity);
         }
 
-        size_type i = _size - 1;
+        idx_t i = _size - 1;
         try
         {
-            for (;i >= pos; i--)
+            for (;i >= pos && i < _size; i--)
             {
                 std::allocator_traits<Allocator>::construct(_alloc, _data + i + n, _data[i]);
                 std::allocator_traits<Allocator>::destroy(_alloc, _data + i);
@@ -1786,16 +1657,17 @@ public:
         }
         catch(const std::exception& e)
         {
-            for (size_type j = 0; j < i; j++)
+            for (idx_t j = 0; j < i; j++)
                 std::allocator_traits<Allocator>::destroy(_alloc, _data + j);
             
-            for (size_type j = _size + n - 1; j > _size + i; j--)
+            for (idx_t j = _size + n - 1; j > _size + i; j--)
                 std::allocator_traits<Allocator>::destroy(_alloc, _data + j);
             
             std::allocator_traits<Allocator>::deallocate(_alloc, _data, _capacity);
 
             _size = _capacity = 0;
             _data = nullptr;
+            std::cerr << e.what() << std::endl;
             throw;
         }
 
@@ -1814,26 +1686,79 @@ public:
         }
         catch(const std::exception& e)
         {
-            for (size_type j = 0; j < i; j++)
+            for (idx_t j = 0; j < i; j++)
                 std::allocator_traits<Allocator>::destroy(_alloc, _data + j);
             
-            for (size_type j = _size + n - 1; j >= _size + pos; j--)
+            for (idx_t j = _size + n - 1; j >= _size + pos; j--)
                 std::allocator_traits<Allocator>::destroy(_alloc, _data + j);
             
             std::allocator_traits<Allocator>::deallocate(_alloc, _data, _capacity);
 
             _size = _capacity = 0;
             _data = nullptr;
+            std::cerr << e.what() << std::endl;
             throw;
         }
         
         _size += n;
+
+        return _data + pos;
     }
 
-    /* TODO */
-    constexpr iterator insert(const_iterator position, std::initializer_list<T> il);
-    constexpr iterator erase(const_iterator position);
-    constexpr iterator erase(const_iterator first, const_iterator last);
+    constexpr iterator insert(const_iterator position, std::initializer_list<T> il)
+    {
+        return insert(position, il.begin(), il.end());
+    }
+
+    constexpr iterator erase(const_iterator position)
+    {
+        return erase(position, position + 1);
+    }
+
+    constexpr iterator erase(const_iterator first, const_iterator last)
+    {
+        if (first > last)
+            throw std::length_error("nuo_vector: first is smaller or equal to last");
+
+        difference_type start_idx = first - _data;
+        difference_type n = last - first;
+
+        iterator first_iter = _data + start_idx;
+        iterator last_iter = _data + start_idx + n;
+
+        iterator i = first_iter;
+        try
+        {
+            for (; i != last_iter; i++)
+                std::allocator_traits<Allocator>::destroy(_alloc, i);
+
+            for (i = last_iter; i != _data + _size; i++)
+            {
+                std::allocator_traits<Allocator>::construct(_alloc, i - n, *i);
+                std::allocator_traits<Allocator>::destroy(_alloc, i);
+            }
+        }
+        catch(const std::exception& e)
+        {
+            for (iterator j = _data; j < i; j++)
+                std::allocator_traits<Allocator>::destroy(_alloc, j);
+
+            for (iterator j = last_iter; j < first_iter + n; j++)
+                std::allocator_traits<Allocator>::destroy(_alloc, j);
+
+            for (iterator j = i + n; j < _data + _size; j++)
+                std::allocator_traits<Allocator>::destroy(_alloc, j);
+
+            _size = _capacity = 0;
+            _data = nullptr;
+            throw;
+        }
+
+        _size -= n;
+
+        return _data + start_idx;
+    }
+
     constexpr void swap(nuo_vector &nv) noexcept(
         std::allocator_traits<Allocator>::propagate_on_container_swap::value ||
         std::allocator_traits<Allocator>::is_always_equal::value)
@@ -1863,20 +1788,31 @@ public:
 
     constexpr void clear() noexcept
     {
-        for (size_type i = 0; i < _size; i++)
+        for (idx_t i = 0; i < _size; i++)
             std::allocator_traits<Allocator>::destroy(_alloc, _data + i);
         _size = 0;
     }
 };
 
 /* TODO */
-// template<class InputIter, class Allocator = std::allocator</*iter-value-type*/<InputIter>>>
-//   nuo_vector(InputIter, InputIter, Allocator = Allocator())
-//     -> nuo_vector</*iter-value-type*/<InputIter>, Allocator>;
+#if _LIBCPP_STD_VER >= 17
+template<
+    typename InputIter,
+    typename Allocator = std::allocator<typename std::iterator_traits<InputIter>::value_type>
+>
+nuo_vector(InputIter, InputIter, Allocator = Allocator())
+    -> nuo_vector<typename std::iterator_traits<InputIter>::value_type, Allocator>;
+#endif
 
-// template<std::ranges::input_range R, class Allocator = std::allocator<ranges::range_value_t<R>>>
-//   nuo_vector(from_range_t, R&&, Allocator = Allocator())
-//     -> nuo_vector<ranges::range_value_t<R>, Allocator>;
+/* TODO */
+#if _LIBCPP_STD_VER >= 23
+template<
+    std::ranges::input_range R,
+    typename Allocator = std::allocator<std::ranges::range_value_t<R>>
+>
+nuo_vector(std::from_range_t, R&&, Allocator = Allocator())
+    -> nuo_vector<std::ranges::range_value_t<R>, Allocator>;
+#endif
 
 } /* namespace nuostl */
 
