@@ -172,13 +172,13 @@ void test::Test_Nuo_Pair::test_operator() {
     assert(d.first == 5 && d.second == 7);
 
     d -= a;
-    assert(d.first == 1 && d.second == 2);
+    assert(d.first == 3 && d.second == 4);
 
     d *= a;
-    assert(d.first == 2 && d.second == 6);
+    assert(d.first == 6 && d.second == 12);
 
     d /= a;
-    assert(d.first == 1 && d.second == 2);
+    assert(d.first == 3 && d.second == 4);
 
     /* arithmetic with double */
     nuo_pair<double, double> e(1.5, 2.0);

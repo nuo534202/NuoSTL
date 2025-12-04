@@ -1,8 +1,18 @@
 #include "test.hpp"
 
-using namespace test;
+#include <stdio.h>
 
-int main() {
-    // Test_Nuo_Pair::test_nuo_pair();
+int main()
+{
+    /* Core */
+    /* Data Types */
+    test::Test_Nuo_Pair::test_nuo_pair();
+
+    /* Sequence Containers */
+    test::Test_Nuo_Vector::test_nuo_vector();
+    
+    /* Algorithms */
+    test::Test_Nuo_Max::test_nuo_max();
+    test::Test_Nuo_Min::test_nuo_min();
     return 0;
 }
