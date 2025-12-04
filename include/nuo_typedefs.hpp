@@ -4,7 +4,8 @@
 #include <stddef.h>
 #include <stdint.h>
 
-namespace nuostl {
+namespace nuostl
+{
 
 using idx_t = size_t;
 
