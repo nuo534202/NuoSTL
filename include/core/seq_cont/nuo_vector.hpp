@@ -28,7 +28,7 @@ public:
     using const_pointer             = typename std::allocator_traits<Allocator>::const_pointer;
     using reference                 = value_type &;
     using const_reference           = const value_type &;
-    using difference_type           = int64_t;
+    using difference_type           = size_t;
     using iterator                  = T *;
     using const_iterator            = const T *;
     using reverse_iterator          = std::reverse_iterator<iterator>;
@@ -44,9 +44,6 @@ public:
     /* construct / copy / destroy */
     /* TODO: replace to_string with nuo_to_string */
     /* TODO: Use reserve() to reallocate memory */
-    /* TODO: assignment order must be the same as declaration order */
-    /* TODO: for all i >= pos, if pos == 0, it may cause error */
-    /* TODO: change some size_t to difference type, when necessary */
     constexpr nuo_vector() noexcept(noexcept(Allocator()))
         : nuo_vector(Allocator()) {}
 
@@ -554,7 +551,7 @@ public:
         if (first > last)
             throw std::length_error("nuo_vector: first is smaller than or equal to last");
 
-        size_t n = std::distance(first, last);
+        difference_type n = std::distance(first, last);
 
         if (n > _capacity)
         {
@@ -588,7 +585,7 @@ public:
     constexpr void assign_range(R &&rg)
     {
         /* get the size of range */
-        size_t n;
+        difference_type n;
         if constexpr (std::ranges::sized_range<R>)
             n = std::ranges::size(rg);
         else
@@ -1226,7 +1223,7 @@ public:
     template <std::ranges::input_range R>
     constexpr void append_range(R &&rg)
     {
-        size_t n;
+        difference_type n;
         if constexpr (std::ranges::sized_range<R>)
             n = std::ranges::size(rg);
         else
@@ -1249,7 +1246,7 @@ public:
         }
         catch(const std::exception& e)
         {
-            for (size_t j = 0; j < i; j++)
+            for (idx_t j = 0; j < i; j++)
                 std::allocator_traits<Allocator>::destroy(_alloc, _data + j);
 
             std::allocator_traits<Allocator>::deallocate(_alloc, _data, _capacity);
@@ -1274,7 +1271,7 @@ public:
     template <class... Args>
     constexpr iterator emplace(const_iterator position, Args &&...args)
     {
-        size_t pos = position - _data;
+        difference_type pos = position - _data;
 
         if (_size >= _capacity)
         {
@@ -1360,7 +1357,7 @@ public:
 
     constexpr iterator insert(const_iterator position, const T &x)
     {
-        size_t pos = position - _data;
+        difference_type pos = position - _data;
 
         if (_size >= _capacity)
         {
@@ -1458,7 +1455,7 @@ public:
 
     constexpr iterator insert(const_iterator position, size_t n, const T &x)
     {
-        size_t pos = position - _data;
+        difference_type pos = position - _data;
 
         if (_size + n >= _capacity)
         {
@@ -1489,15 +1486,15 @@ public:
 
             if constexpr (std::is_copy_assignable_v<T>)
             {
-                for (idx_t i = _size - 1; i >= pos; i--)
-                    _data[i + n] = _data[i];
+                for (idx_t i = _size; i > pos; i--)
+                    _data[i + n - 1] = _data[i - 1];
                 for (idx_t i = pos; i < pos + n; i++)
                     _data[i] = x;
             }
             else if constexpr (std::is_move_assignable_v<T>)
             {
-                for (idx_t i = _size - 1; i >= pos; i--)
-                    _data[i + n] = std::move(_data[i]);
+                for (idx_t i = _size; i > pos; i--)
+                    _data[i + n - 1] = std::move(_data[i - 1]);
                 for (idx_t i = pos; i < pos + n; i++)
                     _data[i] = x;
             }
@@ -1567,7 +1564,7 @@ public:
         if (first >= last)
             throw std::length_error("nuo_vector: first is smaller or equal to last");
 
-        size_t n = std::distance(first, last), pos = position - _data;
+        difference_type n = std::distance(first, last), pos = position - _data;
 
         if (_size >= _capacity)
         {
@@ -1576,21 +1573,21 @@ public:
             reserve(new_capacity);
         }
 
-        idx_t i = _size - 1;
+        idx_t i = _size;
         try
         {
-            for (;i >= pos; i--)
+            for (;i > pos; i--)
             {
-                std::allocator_traits<Allocator>::construct(_alloc, _data + i + n, _data[i]);
-                std::allocator_traits<Allocator>::destroy(_alloc, _data + i);
+                std::allocator_traits<Allocator>::construct(_alloc, _data + i + n - 1, _data[i - 1]);
+                std::allocator_traits<Allocator>::destroy(_alloc, _data + i - 1);
             }
         }
         catch(const std::exception& e)
         {
-            for (idx_t j = 0; j < i; j++)
+            for (idx_t j = 0; j < i - 1; j++)
                 std::allocator_traits<Allocator>::destroy(_alloc, _data + j);
             
-            for (idx_t j = _size + n - 1; j > _size + i; j--)
+            for (idx_t j = _size + n - 1; j > _size + i - 1; j--)
                 std::allocator_traits<Allocator>::destroy(_alloc, _data + j);
             
             std::allocator_traits<Allocator>::deallocate(_alloc, _data, _capacity);
@@ -1631,13 +1628,13 @@ public:
     template <std::ranges::input_range R>
     constexpr iterator insert_range(const_iterator position, R &&rg)
     {
-        size_t n;
+        difference_type n;
         if constexpr (std::ranges::sized_range<R>)
             n = std::ranges::size(rg);
         else
             n = std::ranges::distance(rg);
 
-        size_t pos = position - _data;
+        difference_type pos = position - _data;
 
         if (_size + n > _capacity)
         {
@@ -1646,13 +1643,15 @@ public:
             reserve(new_capacity);
         }
 
-        idx_t i = _size - 1;
+        idx_t i = _size;
         try
         {
-            for (;i >= pos && i < _size; i--)
+            for (;i > pos; i--)
             {
-                std::allocator_traits<Allocator>::construct(_alloc, _data + i + n, _data[i]);
-                std::allocator_traits<Allocator>::destroy(_alloc, _data + i);
+                std::allocator_traits<Allocator>::construct(_alloc,
+                                                            _data + i + n - 1,
+                                                            _data[i - 1]);
+                std::allocator_traits<Allocator>::destroy(_alloc, _data + i - 1);
             }
         }
         catch(const std::exception& e)
@@ -1794,7 +1793,6 @@ public:
     }
 };
 
-/* TODO */
 #if _LIBCPP_STD_VER >= 17
 template<
     typename InputIter,
@@ -1804,7 +1802,6 @@ nuo_vector(InputIter, InputIter, Allocator = Allocator())
     -> nuo_vector<typename std::iterator_traits<InputIter>::value_type, Allocator>;
 #endif
 
-/* TODO */
 #if _LIBCPP_STD_VER >= 23
 template<
     std::ranges::input_range R,
