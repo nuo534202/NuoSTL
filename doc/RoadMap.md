@@ -7,7 +7,7 @@
 - [ ] nuo_any – Similar to `std::any`
 - [ ] nuo_optional – Similar to `std::optional`
 - [x] nuo_pair – Similar to `std::pair`
-- [ ] nuo_string – Similar to `std::string` (DDL: TBD)
+- [ ] nuo_string – Similar to `std::string`
 - [ ] nuo_tuple – Similar to `std::tuple`
 - [ ] nuo_variant – Similar to `std::variant`
 
@@ -23,7 +23,9 @@
 - [ ] nuo_slist (Single Linked List)
 - [ ] nuo_stack – Similar to `std::stack`
 - [ ] nuo_string_view – Similar to `std::string_view`
-- [ ] nuo_vector – Similar to `std::vector` (DDL: 10.12)
+- [ ] nuo_vector – Similar to `std::vector`
+    - TODO: replace `to_string` with `nuo_to_string`
+- [ ] nuo_vector_bool – Similar to `std::vector<bool>`
 
 ### Associative Containers
 
