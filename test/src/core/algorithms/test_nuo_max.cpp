@@ -181,17 +181,18 @@ void test::Test_Nuo_Max::test_nuo_max_basic() {
     assert(rs == s2);
     assert(&rs == &s2);
     
-        /* size_t */
-        size_t zs1 = 0u, zs2 = static_cast<size_t>(-1);
-        const size_t& rz = nuostl::nuo_max(zs1, zs2);
-        assert(rz == zs2);
-        assert(&rz == &zs2);
-    
-        /* long values */
-        long la = -1000L, lb = -999L;
-        const long& rl = nuostl::nuo_max(la, lb);
-        assert(rl == lb);
-        assert(&rl == &lb);
+    /* size_t */
+    size_t zs1 = 0u, zs2 = static_cast<size_t>(-1);
+    const size_t& rz = nuostl::nuo_max(zs1, zs2);
+    assert(rz == zs2);
+    assert(&rz == &zs2);
+
+    /* long values */
+    long la = -1000L, lb = -999L;
+    const long& rl = nuostl::nuo_max(la, lb);
+    assert(rl == lb);
+    assert(&rl == &lb);
+
     /* variadic runtime, first max reference is preserved */
     int v1 = 9, v2 = 1, v3 = 9, v4 = 3;
     const int& rv = nuostl::nuo_max(v1, v2, v3, v4);

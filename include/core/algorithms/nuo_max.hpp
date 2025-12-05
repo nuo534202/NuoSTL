@@ -1,6 +1,9 @@
 #ifndef NUOSTL_CORE_ALGORITHMS_NUO_MAX_HPP_
 #define NUOSTL_CORE_ALGORITHMS_NUO_MAX_HPP_
 
+#include <math.h>
+#include <type_traits>
+
 #include <concepts>
 #include <initializer_list>
 #include <iterator>
@@ -9,6 +12,11 @@ namespace nuostl {
 
 template<typename T>
 constexpr const T& nuo_max(const T& a, const T& b) {
+    if constexpr (std::is_floating_point_v<T>) {
+        if (std::isnan(a) || std::isnan(b))
+            return b;
+    }
+
     if constexpr (requires(const T& x, const T& y) {
                                     { x < y } -> std::convertible_to<bool>;
                                 }) {
@@ -27,7 +35,7 @@ constexpr const T& nuo_max(const T& a, const T& b) {
 }
 
 template<typename T, typename... Ts>
-constexpr const T nuo_max(const T& a, const T& b, const Ts&... rest) {
+constexpr const T& nuo_max(const T& a, const T& b, const Ts&... rest) {
     const T& ans = nuo_max(a, b);
     if constexpr (sizeof...(rest) == 0) {
         return ans;

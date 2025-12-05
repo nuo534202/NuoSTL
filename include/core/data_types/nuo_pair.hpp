@@ -204,8 +204,8 @@ constexpr const auto& get(const nuostl::nuo_pair<T1, T2>& p) noexcept {
 template<size_t N, typename T1, typename T2>
 constexpr auto&& get(nuostl::nuo_pair<T1, T2>&& p) noexcept {
     static_assert(N < 2, "Index out of range in nuo_pair::get");
-    if constexpr (N == 0) return move(p.first);
-    else return move(p.second);
+    if constexpr (N == 0) return std::move(p.first);
+    else return std::move(p.second);
 }
 
 template<typename T1, typename T2>

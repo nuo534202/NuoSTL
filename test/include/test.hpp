@@ -6,4 +6,11 @@
 /* Data Types */
 #include "./core/data_types/test_nuo_pair.hpp"
 
+/* Sequence Containers */
+#include "./core/seq_cont/test_nuo_vector.hpp"
+
+/* Algorithm */
+#include "./core/algorithms/test_nuo_max.hpp"
+#include "./core/algorithms/test_nuo_min.hpp"
+
 #endif
