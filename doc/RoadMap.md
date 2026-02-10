@@ -78,7 +78,7 @@ TBD: hashtable, rb-tree (red black tree).
 - [ ] Default Allocator – Similar to `std::allocator`  
 - [ ] Custom Memory Pool Allocator  
 
-## 2. Additional Components (TBD)
+## 2. Extra Components (TBD)
 
 - [ ] BigInteger Class – Arbitrary precision integer type
 - [ ] Complex Number Class – Similar to `std::complex` but extended
