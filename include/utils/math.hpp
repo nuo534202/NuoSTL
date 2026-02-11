@@ -40,6 +40,8 @@ constexpr T nuo_bit_ceil(T x)
     return static_cast<T>(ux);
 }
 
+int128 gcd(int128 a, int128 b);
+
 }   /* namespace nuostd */
 
 #endif
