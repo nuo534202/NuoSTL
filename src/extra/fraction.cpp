@@ -138,12 +138,6 @@ bool Fraction::operator<=(const Fraction& frac) const
     return lhs <= rhs;
 }
 
-std::ostream& Fraction::operator<< (const Fraction& frac) const
-{
-    std::cout << up_ << " / " << down_;
-    return std::cout;
-}
-
 void Fraction::SetUp(int64 up)
 {
     up_ = up;
@@ -179,6 +173,12 @@ void Fraction::Normalize()
         up_ = -up_;
         down_ = -down_;
     }
+}
+
+std::ostream& operator<< (std::ostream& cout, const Fraction& frac)
+{
+    cout << frac.GetUp() << "/" << frac.GetDown();
+    return cout;
 }
 
 }   /* namespace nuostl */

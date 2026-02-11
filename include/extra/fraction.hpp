@@ -26,7 +26,6 @@ public:
     bool operator>=(const Fraction& frac) const;
     bool operator<(const Fraction& frac) const;
     bool operator<=(const Fraction& frac) const;
-    std::ostream& operator<< (const Fraction& frac) const;
 
     void SetUp(int64 up);
     void SetDown(int64 down);
@@ -42,5 +41,7 @@ private:
     int64 up_;
     int64 down_;
 };
+
+std::ostream& operator<< (std::ostream& cout, const Fraction& frac);
 
 }   /* namespace nuostl */
