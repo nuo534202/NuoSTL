@@ -2,7 +2,7 @@ cmake_minimum_required(VERSION 3.16)
 
 project(TestNuoSTL CXX)
 
-set(CMAKE_CXX_STANDARD 23)
+set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
 
@@ -17,19 +17,7 @@ include_directories(
 )
 
 # test source
-file(GLOB TEST_DATA_TYPES ${PROJECT_SOURCE_DIR}/src/core/data_types/*.cpp)
-file(GLOB TEST_ALGORITHMS ${PROJECT_SOURCE_DIR}/src/core/algorithms/*.cpp)
-file(GLOB TEST_SEQ_CONT ${PROJECT_SOURCE_DIR}/src/core/seq_cont/*.cpp)
+file(GLOB_RECURSE TEST_SRC ${PROJECT_SOURCE_DIR}/src/*.cpp)
+file(GLOB_RECURSE SRC ${PROJECT_SOURCE_DIR}/../src/*.cpp)
 
-set(TEST_SRC
-    ${PROJECT_SOURCE_DIR}/src/test.cpp
-
-    # C++ Core
-    ${TEST_DATA_TYPES}
-    ${TEST_ALGORITHMS}
-    ${TEST_SEQ_CONT}
-)
-
-set(TEST ${TEST_SRC})
-
-add_executable(test ${TEST})
+add_executable(test ${TEST_SRC} ${SRC})

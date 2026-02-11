@@ -4,13 +4,16 @@
 /* 1. C++ STL Core Components */
 
 /* Data Types */
-#include "./core/data_types/test_nuo_pair.hpp"
+#include "core/data_types/test_nuo_pair.hpp"
 
 /* Sequence Containers */
-#include "./core/seq_cont/test_nuo_vector.hpp"
+#include "core/seq_cont/test_nuo_vector.hpp"
 
 /* Algorithm */
-#include "./core/algorithms/test_nuo_max.hpp"
-#include "./core/algorithms/test_nuo_min.hpp"
+#include "core/algorithms/test_nuo_max.hpp"
+#include "core/algorithms/test_nuo_min.hpp"
+
+/* 2. Extra Components */
+#include "extra/test_fraction.hpp"
 
 #endif
