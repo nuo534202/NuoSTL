@@ -14,5 +14,8 @@ int main()
     /* Algorithms */
     test::Test_Nuo_Max::test_nuo_max();
     test::Test_Nuo_Min::test_nuo_min();
+
+    /* Extra */
+    test::TestFraction::test_fraction();
     return 0;
 }

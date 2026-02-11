@@ -13,7 +13,10 @@
 #include "./core/algorithms/nuo_max.hpp"
 #include "./core/algorithms/nuo_min.hpp"
 
-/* 2. Utils */
+/* 2. Extra Components */
+#include "./extra/fraction.hpp"
+
+/* 3. Utils */
 #include "./utils/math.hpp"
 
 #endif
