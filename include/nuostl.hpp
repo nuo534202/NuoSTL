@@ -17,6 +17,7 @@
 #include "extra/nuo_fraction.hpp"
 
 /* 3. Utils */
+#include "utils/nuo_iterator.hpp"
 #include "utils/nuo_math.hpp"
 
 #endif
