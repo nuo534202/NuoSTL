@@ -14,6 +14,6 @@
 #include "core/algorithms/test_nuo_min.hpp"
 
 /* 2. Extra Components */
-#include "extra/test_fraction.hpp"
+#include "extra/test_nuo_fraction.hpp"
 
 #endif

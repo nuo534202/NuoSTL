@@ -1,8 +1,8 @@
-#include "extra/fraction.hpp"
+#include "extra/nuo_fraction.hpp"
 
 #include <stdexcept>
 
-#include "utils/math.hpp"
+#include "utils/nuo_math.hpp"
 
 namespace nuostl
 {

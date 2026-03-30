@@ -1,4 +1,4 @@
-#include "extra/test_fraction.hpp"
+#include "extra/test_nuo_fraction.hpp"
 
 #include <assert.h>
 #include <math.h>
@@ -6,7 +6,7 @@
 #include <limits>
 #include <stdexcept>
 
-#include "extra/fraction.hpp"
+#include "extra/nuo_fraction.hpp"
 
 namespace test {
 

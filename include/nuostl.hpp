@@ -4,19 +4,19 @@
 /* 1. C++ STL Core Components */
 
 /* Data Types */
-#include "./core/data_types/nuo_pair.hpp"
+#include "core/data_types/nuo_pair.hpp"
 
 /* Sequence Container */
-#include "./core/seq_cont/nuo_vector.hpp"
+#include "core/seq_cont/nuo_vector.hpp"
 
 /* Algorithms */
-#include "./core/algorithms/nuo_max.hpp"
-#include "./core/algorithms/nuo_min.hpp"
+#include "core/algorithms/nuo_max.hpp"
+#include "core/algorithms/nuo_min.hpp"
 
 /* 2. Extra Components */
-#include "./extra/fraction.hpp"
+#include "extra/nuo_fraction.hpp"
 
 /* 3. Utils */
-#include "./utils/math.hpp"
+#include "utils/nuo_math.hpp"
 
 #endif
