@@ -28,7 +28,7 @@ void NuoConstruct(T* ptr, T&& value)
 template <typename T, typename... Args>
 void NuoConstruct(T* ptr, Args&& ...args)
 {
-  ::new ((void*)ptr) T(forward<Args>(args)...);
+  ::new ((void*)ptr) T(NuoForward<Args>(args)...);
 }
 
 } /* namespace nuostl */
