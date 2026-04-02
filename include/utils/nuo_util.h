@@ -16,16 +16,25 @@ typename std::remove_reference<T>::type&& NuoMove(T&& arg) noexcept
 
 /* forward */
 template <typename T>
-T&& forward(typename std::remove_reference<T>::type& args) noexcept
+T&& NuoForward(typename std::remove_reference<T>::type& args) noexcept
 {
   return static_cast<T&&>(args);
 }
 
 template <typename T>
-T&& forward(typename std::remove_reference<T>::type& args) noexcept
+T&& NuoForward(typename std::remove_reference<T>::type& args) noexcept
 {
   static_assert(!std::is_lvalue_reference<T>::value, "bad forward");
   return static_cast<T&&>(args);
+}
+
+/* swap */
+template <typename T>
+void NuoSwap(T& lhs, T& rhs)
+{
+  T tmp = NuoMove(lhs);
+  lhs = NuoMove(rhs);
+  rhs = NuoMove(lhs);
 }
 
 } /* namespace nuostl */
