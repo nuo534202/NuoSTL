@@ -1,5 +1,6 @@
 #pragma once
 
+#include "utils/nuo_iterator.hpp"
 #include "utils/nuo_type_traits.hpp"
 
 namespace nuostl
@@ -17,7 +18,7 @@ template <typename T>
 void NuoDestroySingle(T*, std::true_type);
 
 template <typename T>
-void NuoDestroyDingle(T* ptr, std::false_type);
+void NuoDestroySingle(T* ptr, std::false_type);
 
 /* destroy category */
 template <typename ForwardIter>
@@ -70,7 +71,7 @@ template <typename ForwardIter>
 void NuoDestroyCat(ForwardIter first, ForwardIter last, std::false_type)
 {
   for (ForwardIter it = first; it != last; it++)
-    NuoDestroy(&*first);
+    NuoDestroy(&*it);
 }
 
 } /* namespace nuostl */

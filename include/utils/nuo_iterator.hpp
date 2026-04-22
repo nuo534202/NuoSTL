@@ -7,7 +7,7 @@
 namespace nuostl
 {
 
-/* 5 iterator types */
+/* 5 iterator tags */
 class NuoInputIteratorTag {};
 class NuoOutputIteratorTag {};
 class NuoForwardIteratorTag : public NuoInputIteratorTag {};
@@ -40,14 +40,13 @@ private:
   using false_type = FalseStruct;
 
 public:
-  static const bool kValue = sizeof(HasIteratorCat<T>(0)) == sizeof(true_type);
-
-private:
   template <typename U>
   static false_type HasIteratorCat(...);
 
   template <typename U>
   static true_type HasIteratorCat(typename U::iterator_category* = 0);
+
+  static const bool kValue = sizeof(HasIteratorCat<T>(0)) == sizeof(true_type);
 };
 
 template <typename Iterator, bool>
@@ -105,7 +104,6 @@ class NuoHasIteratorCatOf
 template <typename T, typename U>
 class NuoHasIteratorCatOf<T, U, false> : public NuoFalseType {};
 
-/* iterator traits */
 template <typename Iter>
 class NuoIsExactlyInputIterator :
   public NuoBoolConstant<
@@ -117,31 +115,31 @@ class NuoIsExactlyInputIterator :
 
 template <typename Iter>
 class NuoIsInputIterator :
-  public NuoHasIteratorCatOf<Iter, NuoInputIteratorTag>::kValue
+  public NuoHasIteratorCatOf<Iter, NuoInputIteratorTag>
 { 
 };
 
 template <typename Iter>
 class NuoIsOutputIterator :
-  public NuoHasIteratorCatOf<Iter, NuoOutputIteratorTag>::kValue
+  public NuoHasIteratorCatOf<Iter, NuoOutputIteratorTag>
 {
 };
 
 template <typename Iter>
 class NuoIsForwardIterator :
-  public NuoHasIteratorCatOf<Iter, NuoForwardIteratorTag>::kValue
+  public NuoHasIteratorCatOf<Iter, NuoForwardIteratorTag>
 {
 };
 
 template <typename Iter>
 class NuoIsBidirectionalIterator :
-  public NuoHasIteratorCatOf<Iter, NuoBidirectionalIteratorTag>::kValue
+  public NuoHasIteratorCatOf<Iter, NuoBidirectionalIteratorTag>
 {
 };
 
 template <typename Iter>
 class NuoIsRandomAccessIterator :
-  public NuoHasIteratorCatOf<Iter, NuoRandomAccessIteratorTag>::kValue
+  public NuoHasIteratorCatOf<Iter, NuoRandomAccessIteratorTag>
 {
 };
 
@@ -170,6 +168,39 @@ NuoValueType(const Iterator&)
 {
   return static_cast<
     typename NuoIteratorTraits<Iterator>::value_type*>(nullptr);
+}
+
+/* calculate the distance of iterator */
+template <typename InputIterator>
+typename NuoIteratorTraits<InputIterator>::difference_type
+NuoDistanceDispatch(
+  InputIterator first,
+  InputIterator last,
+  NuoInputIteratorTag)
+{
+  typename NuoIteratorTraits<InputIterator>::difference_type n = 0;
+
+  while (first != last)
+    first++, n++;
+
+  return n;
+}
+
+template <typename RandomIterator>
+typename NuoIteratorTraits<RandomIterator>::difference_type
+NuoDistanceDispatch(
+  RandomIterator first,
+  RandomIterator last,
+  NuoRandomAccessIteratorTag)
+{
+  return last - first;
+}
+
+template <typename InputIterator>
+typename NuoIteratorTraits<InputIterator>::difference_type
+NuoDistance(InputIterator first, InputIterator last)
+{
+  return NuoDistanceDispatch(first, last, NuoIteratorCategory(first));
 }
 
 /* make iterator forward n steps */
@@ -214,6 +245,12 @@ void NuoAdvanceDispatch(
   iter += dis;
 }
 
+template <typename InputIterator, typename Distance>
+void NuoAdvance(InputIterator& iter, Distance dis)
+{
+  NuoAdvanceDispatch(iter, dis, NuoIteratorCategory(iter));
+}
+
 /*****************************************************************************************/
 /* reverse iterator */
 template <typename Iterator>
@@ -232,7 +269,7 @@ public:
 public:
   /* constructor */
   NuoReverseIterator() = default;
-  explicit NuoReverseIterator(iterator_type& iter)
+  explicit NuoReverseIterator(const iterator_type& iter)
     : current_iter_(iter)
   {
   }

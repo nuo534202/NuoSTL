@@ -92,7 +92,7 @@ template <typename T>
 template <typename... Args>
 void NuoAllocator<T>::Construct(T* ptr, Args&& ...args)
 {
-  NuoConstruct(ptr, args);
+  NuoConstruct(ptr, args...);
 }
 
 template <typename T>
