@@ -9,6 +9,7 @@ int main()
     test::Test_Nuo_Pair::test_nuo_pair();
 
     /* Sequence Containers */
+    test::TestNuoList::test_nuo_list();
     test::Test_Nuo_Vector::test_nuo_vector();
     
     /* Algorithms */
