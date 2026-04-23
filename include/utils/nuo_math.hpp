@@ -1,5 +1,4 @@
-#ifndef NUOSTL_CORE_UTILS_MATH_HPP_
-#define NUOSTL_CORE_UTILS_MATH_HPP_
+#pragma once
 
 #include <type_traits>
 
@@ -43,5 +42,3 @@ constexpr T nuo_bit_ceil(T x)
 int128 gcd(int128 a, int128 b);
 
 }   /* namespace nuostd */
-
-#endif

@@ -1,5 +1,4 @@
-#ifndef NUOSTL_NUOSTL_HPP_
-#define NUOSTL_NUOSTL_HPP_
+#pragma once
 
 /* 1. C++ STL Core Components */
 
@@ -13,12 +12,18 @@
 /* Algorithms */
 #include "core/algorithms/nuo_max.hpp"
 #include "core/algorithms/nuo_min.hpp"
+#include "core/algorithms/nuo_sort_operation.hpp"
 
 /* 2. Extra Components */
 #include "extra/nuo_fraction.hpp"
 
 /* 3. Utils */
+#include "utils/nuo_allocator.hpp"
+#include "utils/nuo_construct.hpp"
+#include "utils/nuo_destroy.hpp"
+#include "utils/nuo_exceptdef.hpp"
+#include "utils/nuo_functional.hpp"
 #include "utils/nuo_iterator.hpp"
 #include "utils/nuo_math.hpp"
-
-#endif
+#include "utils/nuo_type_traits.hpp"
+#include "utils/nuo_util.h"

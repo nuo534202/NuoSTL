@@ -1,5 +1,4 @@
-#ifndef NUOSTL_NUO_TYPEDEFS_HPP_
-#define NUOSTL_NUO_TYPEDEFS_HPP_
+#pragma once
 
 #include <stddef.h>
 #include <stdint.h>
@@ -21,6 +20,4 @@ using uint32 = uint32_t;
 using uint64 = uint64_t;
 using uint128 = __uint128_t;
 
-}   /* namespace nuostl */
-
-#endif
+} /* namespace nuostl */

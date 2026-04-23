@@ -1,5 +1,4 @@
-#ifndef NUOSTL_CORE_ALGORITHMS_NUO_MAX_HPP_
-#define NUOSTL_CORE_ALGORITHMS_NUO_MAX_HPP_
+#pragma once
 
 #include <math.h>
 #include <type_traits>
@@ -74,5 +73,3 @@ constexpr auto nuo_max(Iter first, Iter last)
 }
 
 } /* namespace nuostl */
-
-#endif

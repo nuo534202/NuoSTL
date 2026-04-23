@@ -1,5 +1,4 @@
-#ifndef NUOSTL_CORE_DATA_TYPES_NUO_PAIR_HPP_
-#define NUOSTL_CORE_DATA_TYPES_NUO_PAIR_HPP_
+#pragma once
 
 #include <stddef.h>
 
@@ -219,5 +218,3 @@ struct tuple_element<N, nuostl::nuo_pair<T1, T2>> {
 };
 
 } /* namespace std */
-
-#endif

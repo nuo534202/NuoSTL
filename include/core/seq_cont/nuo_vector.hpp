@@ -1,5 +1,4 @@
-#ifndef NUOSTL_CORE_SEQ_CONT_NUO_VECTOR_HPP_
-#define NUOSTL_CORE_SEQ_CONT_NUO_VECTOR_HPP_
+#pragma once
 
 #include <compare>
 #include <memory>
@@ -1812,5 +1811,3 @@ nuo_vector(std::from_range_t, R&&, Allocator = Allocator())
 #endif
 
 } /* namespace nuostl */
-
-#endif

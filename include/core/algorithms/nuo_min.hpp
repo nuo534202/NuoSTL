@@ -1,5 +1,4 @@
-#ifndef NUOSTL_CORE_ALGORITHMS_NUO_MIN_HPP_
-#define NUOSTL_CORE_ALGORITHMS_NUO_MIN_HPP_
+#pragma once
 
 #include <math.h>
 #include <type_traits>
@@ -75,5 +74,3 @@ constexpr auto nuo_min(Iter first, Iter last)
 }
 
 }   /* namespace nuostl*/
-
-#endif
