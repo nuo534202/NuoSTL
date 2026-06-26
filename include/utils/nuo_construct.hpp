@@ -2,7 +2,7 @@
 
 #include <new>
 
-#include "utils/nuo_util.h"
+#include "utils/nuo_util.hpp"
 
 namespace nuostl
 {

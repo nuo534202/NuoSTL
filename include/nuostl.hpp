@@ -6,6 +6,7 @@
 #include "core/data_types/nuo_pair.hpp"
 
 /* Sequence Container */
+#include "core/seq_cont/nuo_deque.hpp"
 #include "core/seq_cont/nuo_list.hpp"
 #include "core/seq_cont/nuo_vector.hpp"
 
@@ -26,4 +27,4 @@
 #include "utils/nuo_iterator.hpp"
 #include "utils/nuo_math.hpp"
 #include "utils/nuo_type_traits.hpp"
-#include "utils/nuo_util.h"
+#include "utils/nuo_util.hpp"

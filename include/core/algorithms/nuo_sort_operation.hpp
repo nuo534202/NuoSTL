@@ -1,7 +1,7 @@
 #pragma once
 
 #include "utils/nuo_exceptdef.hpp"
-#include "utils/nuo_util.h"
+#include "utils/nuo_util.hpp"
 
 namespace nuostl
 {
