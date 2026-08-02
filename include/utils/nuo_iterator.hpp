@@ -358,49 +358,49 @@ typename NuoReverseIterator<Iterator>::difference_type
 operator-(const NuoReverseIterator<Iterator>& lhs,
           const NuoReverseIterator<Iterator>& rhs)
 {
-  return lhs.base() - rhs.base();
+  return rhs.Base() - lhs.Base();
 }
 
 template <typename Iterator>
 bool operator==(const NuoReverseIterator<Iterator>& lhs,
                 const NuoReverseIterator<Iterator>& rhs)
 {
-  return lhs.base() == rhs.base();
+  return lhs.Base() == rhs.Base();
 }
 
 template <typename Iterator>
 bool operator!=(const NuoReverseIterator<Iterator>& lhs,
                 const NuoReverseIterator<Iterator>& rhs)
 {
-  return lhs.base() != rhs.base();
+  return lhs.Base() != rhs.Base();
 }
 
 template <typename Iterator>
 bool operator<(const NuoReverseIterator<Iterator>& lhs,
-                const NuoReverseIterator<Iterator>& rhs)
+               const NuoReverseIterator<Iterator>& rhs)
 {
-  return lhs.base() < rhs.base();
+  return rhs.Base() < lhs.Base();
 }
 
 template <typename Iterator>
 bool operator>(const NuoReverseIterator<Iterator>& lhs,
-                const NuoReverseIterator<Iterator>& rhs)
+               const NuoReverseIterator<Iterator>& rhs)
 {
-  return lhs.base() > rhs.base();
+  return lhs.Base() < rhs.Base();
 }
 
 template <typename Iterator>
 bool operator<=(const NuoReverseIterator<Iterator>& lhs,
                 const NuoReverseIterator<Iterator>& rhs)
 {
-  return lhs.base() <= rhs.base();
+  return !(rhs < lhs);
 }
 
 template <typename Iterator>
 bool operator>=(const NuoReverseIterator<Iterator>& lhs,
                 const NuoReverseIterator<Iterator>& rhs)
 {
-  return lhs.base() >= rhs.base();
+  return !(lhs < rhs);
 }
 
 } /* namespace nuostl */
