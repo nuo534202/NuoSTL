@@ -19,7 +19,7 @@
 - [x] NuoList – Similar to `std::list`
 - [ ] NuoPriorityQueue – Similar to `std::priority_queue`
   - [ ] NuoHeap
-- [ ] NuoQueue – Similar to `std::queue`
+- [x] NuoQueue – Similar to `std::queue`
 - [ ] NuoSlist (Single Linked List)
 - [x] NuoStack – Similar to `std::stack`
 - [ ] NuoStringView – Similar to `std::string_view`

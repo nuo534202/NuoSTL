@@ -9,6 +9,7 @@
 /* Sequence Containers */
 #include "core/seq_cont/test_nuo_deque.hpp"
 #include "core/seq_cont/test_nuo_list.hpp"
+#include "core/seq_cont/test_nuo_queue.hpp"
 #include "core/seq_cont/test_nuo_stack.hpp"
 #include "core/seq_cont/test_nuo_vector.hpp"
 
