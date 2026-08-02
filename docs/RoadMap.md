@@ -21,7 +21,7 @@
   - [ ] NuoHeap
 - [ ] NuoQueue – Similar to `std::queue`
 - [ ] NuoSlist (Single Linked List)
-- [ ] NuoStack – Similar to `std::stack`
+- [x] NuoStack – Similar to `std::stack`
 - [ ] NuoStringView – Similar to `std::string_view`
 - [x] NuoVector – Similar to `std::vector`
   - TODO: replace `to_string` with `nuo_to_string`, refactor
