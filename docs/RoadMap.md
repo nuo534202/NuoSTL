@@ -15,7 +15,7 @@
 
 - [x] NuoArray – Similar to `std::array`
 - [x] NuoDeque – Similar to `std::deque`
-- [ ] NuoForwardList – Similar to `std::forward_list`
+- [x] NuoForwardList – Similar to `std::forward_list`
 - [x] NuoList – Similar to `std::list`
 - [ ] NuoPriorityQueue – Similar to `std::priority_queue`
   - [ ] NuoHeap

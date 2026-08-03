@@ -11,6 +11,7 @@ int main()
     /* Sequence Containers */
     test::TestNuoArray::test_nuo_array();
     test::TestNuoDeque::test_nuo_deque();
+    test::TestNuoForwardList::test_nuo_forward_list();
     test::TestNuoList::test_nuo_list();
     test::TestNuoQueue::test_nuo_queue();
     test::TestNuoStack::test_nuo_stack();

@@ -97,6 +97,7 @@ public:
 template <typename T>
 class NuoLess : public NuoBinaryFunction<T, T, bool>
 {
+public:
   T operator()(const T& x, const T& y) const { return x < y; }
 };
 
