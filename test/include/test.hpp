@@ -7,6 +7,7 @@
 #include "core/data_types/test_nuo_pair.hpp"
 
 /* Sequence Containers */
+#include "core/seq_cont/test_nuo_array.hpp"
 #include "core/seq_cont/test_nuo_deque.hpp"
 #include "core/seq_cont/test_nuo_list.hpp"
 #include "core/seq_cont/test_nuo_queue.hpp"

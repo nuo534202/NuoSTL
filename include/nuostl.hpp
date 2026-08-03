@@ -6,6 +6,7 @@
 #include "core/data_types/nuo_pair.hpp"
 
 /* Sequence Container */
+#include "core/seq_cont/nuo_array.hpp"
 #include "core/seq_cont/nuo_deque.hpp"
 #include "core/seq_cont/nuo_list.hpp"
 #include "core/seq_cont/nuo_queue.hpp"

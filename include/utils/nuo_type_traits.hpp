@@ -31,4 +31,10 @@ class NuoIsPair : public NuoFalseType {};
 template <typename T1, typename T2>
 class NuoIsPair<NuoPair<T1, T2>> : public NuoTrueType {};
 
+/* is_nothrow_swappable */
+template <typename T>
+class NuoIsNothrowSwappable
+  : public NuoBoolConstant<std::is_nothrow_swappable<T>::value>
+{};
+
 } /* namespace nuostl */

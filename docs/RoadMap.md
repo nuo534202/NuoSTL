@@ -13,7 +13,7 @@
 
 ### Sequence Containers
 
-- [ ] NuoArray – Similar to `std::array`
+- [x] NuoArray – Similar to `std::array`
 - [x] NuoDeque – Similar to `std::deque`
 - [ ] NuoForwardList – Similar to `std::forward_list`
 - [x] NuoList – Similar to `std::list`
