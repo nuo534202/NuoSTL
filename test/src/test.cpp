@@ -8,6 +8,9 @@ int main()
     /* Data Types */
     test::Test_Nuo_Pair::test_nuo_pair();
 
+    /* Associative Containers */
+    test::Test_Nuo_Set::test_nuo_set();
+
     /* Sequence Containers */
     test::TestNuoArray::test_nuo_array();
     test::TestNuoDeque::test_nuo_deque();

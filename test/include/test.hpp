@@ -6,6 +6,9 @@
 /* Data Types */
 #include "core/data_types/test_nuo_pair.hpp"
 
+/* Associative Containers */
+#include "core/assoc_cont/test_nuo_set.hpp"
+
 /* Sequence Containers */
 #include "core/seq_cont/test_nuo_array.hpp"
 #include "core/seq_cont/test_nuo_deque.hpp"

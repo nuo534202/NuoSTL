@@ -35,10 +35,8 @@
 - [ ] NuoUnorderedSet – Similar to `std::unordered_set`
 - [ ] NuoMap – Similar to `std::map`
 - [ ] NuoMultimap – Similar to `std::multimap`
-- [ ] NuoMultiset – Similar to `std::multiset`
-- [ ] NuoSet – Similar to `std::set`
-
-TBD: hashtable, rb-tree (red black tree).
+- [x] NuoMultiset – Similar to `std::multiset` (wraps `NuoRbTree`)
+- [x] NuoSet – Similar to `std::set` (wraps `NuoRbTree`)
 
 ### Iterators
 
