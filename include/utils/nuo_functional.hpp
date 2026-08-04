@@ -23,7 +23,7 @@ class NuoBinaryFunction
 public:
   using argument1_type  = Arg1;
   using argument2_type  = Arg2;
-  using result_type     = Result;;
+  using result_type     = Result;
 };
 
 /* arithmetic operation class */
@@ -91,35 +91,35 @@ template <typename T>
 class NuoNotEqualTo : public NuoBinaryFunction<T, T, bool>
 {
 public:
-  T operator()(const T& x, const T& y) const { return x != y; }
+  bool operator()(const T& x, const T& y) const { return x != y; }
 };
 
 template <typename T>
 class NuoLess : public NuoBinaryFunction<T, T, bool>
 {
 public:
-  T operator()(const T& x, const T& y) const { return x < y; }
+  bool operator()(const T& x, const T& y) const { return x < y; }
 };
 
 template <typename T>
 class NuoGreater : public NuoBinaryFunction<T, T, bool>
 {
 public:
-  T operator()(const T& x, const T& y) const { return x > y; }
+  bool operator()(const T& x, const T& y) const { return x > y; }
 };
 
 template <typename T>
 class NuoLessEqual : public NuoBinaryFunction<T, T, bool>
 {
 public:
-  T operator()(const T& x, const T& y) const { return x <= y; }
+  bool operator()(const T& x, const T& y) const { return x <= y; }
 };
 
 template <typename T>
 class NuoGreaterEqual : public NuoBinaryFunction<T, T, bool>
 {
 public:
-  T operator()(const T& x, const T& y) const { return x >= y; }
+  bool operator()(const T& x, const T& y) const { return x >= y; }
 };
 
 /* logic and bitwise operation class */
@@ -177,6 +177,7 @@ public:
 template <typename T>
 class NuoIdentity : public NuoUnaryFunction<T, T>
 {
+public:
   const T& operator()(const T& x) const { return x; }
 };
 
