@@ -85,14 +85,14 @@ void NuoAllocator<T>::Construct(T* ptr, const T& value)
 template <typename T>
 void NuoAllocator<T>::Construct(T* ptr, T&& value)
 {
-  NuoConstruct(ptr, value);
+  NuoConstruct(ptr, NuoMove(value));
 }
 
 template <typename T>
 template <typename... Args>
 void NuoAllocator<T>::Construct(T* ptr, Args&& ...args)
 {
-  NuoConstruct(ptr, args...);
+  NuoConstruct(ptr, NuoForward<Args>(args)...);
 }
 
 template <typename T>
