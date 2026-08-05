@@ -7,6 +7,7 @@
 
 /* Associative Containers */
 #include "core/assoc_cont/test_nuo_map.hpp"
+#include "core/assoc_cont/test_nuo_rb_tree.hpp"
 #include "core/assoc_cont/test_nuo_set.hpp"
 
 /* Sequence Containers */

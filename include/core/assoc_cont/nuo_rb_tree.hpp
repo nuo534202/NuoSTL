@@ -1549,8 +1549,9 @@ NuoRbTree<T, Compare>::GetInsertUniquePos(const key_type& key)
   {  /* The new node is not a duplicate. */
     return nuo_make_pair(nuo_make_pair(y, add_to_left), true);
   }
-  /* Reaching this point means the new key duplicates an existing key. */
-  return nuo_make_pair(nuo_make_pair(y, add_to_left), false);
+  /* Reaching this point means the new key duplicates an existing key;
+     report the existing node as the insertion result. */
+  return nuo_make_pair(nuo_make_pair(j.node_, add_to_left), false);
 }
 
 /* Insert value at x; add_to_left selects the left or right side. */

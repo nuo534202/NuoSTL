@@ -11,6 +11,7 @@ int main()
     /* Associative Containers */
     test::TestNuoMap::test_nuo_map();
     test::TestNuoMultimap::test_nuo_multimap();
+    test::TestNuoRbTree::test_nuo_rb_tree();
     test::Test_Nuo_Set::test_nuo_set();
 
     /* Sequence Containers */
