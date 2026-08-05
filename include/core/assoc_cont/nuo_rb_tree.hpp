@@ -779,6 +779,7 @@ private:
 public:
   /* Construction, copy, move, and destruction */
   NuoRbTree() { RbTreeInit(); }
+  explicit NuoRbTree(const key_compare& comp);
 
   NuoRbTree(const NuoRbTree& rhs);
   NuoRbTree(NuoRbTree&& rhs) noexcept;
@@ -997,6 +998,13 @@ private:
 
 /****************************************************/
 /* Constructors and assignment operators */
+
+template <typename T, typename Compare>
+NuoRbTree<T, Compare>::NuoRbTree(const key_compare& comp)
+  : key_comp_(comp)
+{
+  RbTreeInit();
+}
 
 /* Copy constructor */
 template <typename T, typename Compare>
