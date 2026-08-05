@@ -33,8 +33,8 @@
 - [ ] NuoUnorderedMultimap – Similar to `std::unordered_multimap`
 - [ ] NuoUnorderedMultiset – Similar to `std::unordered_multiset`
 - [ ] NuoUnorderedSet – Similar to `std::unordered_set`
-- [ ] NuoMap – Similar to `std::map`
-- [ ] NuoMultimap – Similar to `std::multimap`
+- [x] NuoMap – Similar to `std::map` (wraps `NuoRbTree`)
+- [x] NuoMultimap – Similar to `std::multimap` (wraps `NuoRbTree`)
 - [x] NuoMultiset – Similar to `std::multiset` (wraps `NuoRbTree`)
 - [x] NuoSet – Similar to `std::set` (wraps `NuoRbTree`)
 

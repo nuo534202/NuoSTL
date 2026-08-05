@@ -6,6 +6,7 @@
 #include "core/data_types/nuo_pair.hpp"
 
 /* Associative Containers */
+#include "core/assoc_cont/nuo_map.hpp"
 #include "core/assoc_cont/nuo_set.hpp"
 
 /* Sequence Container */

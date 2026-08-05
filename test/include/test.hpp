@@ -1,5 +1,4 @@
-#ifndef NUOSTL_TEST_HPP_
-#define NUOSTL_TEST_HPP_
+#pragma once
 
 /* 1. C++ STL Core Components */
 
@@ -7,6 +6,7 @@
 #include "core/data_types/test_nuo_pair.hpp"
 
 /* Associative Containers */
+#include "core/assoc_cont/test_nuo_map.hpp"
 #include "core/assoc_cont/test_nuo_set.hpp"
 
 /* Sequence Containers */
@@ -24,5 +24,3 @@
 
 /* 2. Extra Components */
 #include "extra/test_nuo_fraction.hpp"
-
-#endif

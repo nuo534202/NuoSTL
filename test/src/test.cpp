@@ -9,6 +9,8 @@ int main()
     test::Test_Nuo_Pair::test_nuo_pair();
 
     /* Associative Containers */
+    test::TestNuoMap::test_nuo_map();
+    test::TestNuoMultimap::test_nuo_multimap();
     test::Test_Nuo_Set::test_nuo_set();
 
     /* Sequence Containers */
