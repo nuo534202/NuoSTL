@@ -36,6 +36,14 @@ public:
     ) :
         first(_first), second(_second) {}
 
+    template<typename U1, typename U2>
+    constexpr nuo_pair(U1&& first_arg, U2&& second_arg) noexcept(
+        std::is_nothrow_constructible_v<T1, U1&&> &&
+        std::is_nothrow_constructible_v<T2, U2&&>
+    ) :
+        first(std::forward<U1>(first_arg)),
+        second(std::forward<U2>(second_arg)) {}
+
     /* Destructor */
     ~nuo_pair() = default;
 
