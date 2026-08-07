@@ -1,5 +1,4 @@
-#ifndef NUOSTL_TEST_CORE_ASSOC_CONT_TEST_NUO_SET_HPP_
-#define NUOSTL_TEST_CORE_ASSOC_CONT_TEST_NUO_SET_HPP_
+#pragma once
 
 namespace test {
 
@@ -23,5 +22,3 @@ public:
 };
 
 }   /* namespace test */
-
-#endif

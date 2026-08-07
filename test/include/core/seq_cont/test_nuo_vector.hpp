@@ -1,5 +1,4 @@
-#ifndef NUOSTL_TEST_CORE_SEQ_CONT_NUO_VECTOR_HPP_
-#define NUOSTL_TEST_CORE_SEQ_CONT_NUO_VECTOR_HPP_
+#pragma once
 
 namespace test
 {
@@ -45,5 +44,3 @@ public:
 };
 
 }   /* namespace test */
-
-#endif

@@ -1,5 +1,4 @@
-#ifndef NUOSTL_TEST_CORE_DATA_TYPES_TEST_NUO_PAIR_HPP_
-#define NUOSTL_TEST_CORE_DATA_TYPES_TEST_NUO_PAIR_HPP_
+#pragma once
 
 namespace test {
 
@@ -20,5 +19,3 @@ public:
 };
 
 }   /* namespace test */
-
-#endif

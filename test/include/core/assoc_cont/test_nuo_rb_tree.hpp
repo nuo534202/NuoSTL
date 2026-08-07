@@ -1,5 +1,4 @@
-#ifndef NUOSTL_TEST_CORE_ASSOC_CONT_TEST_NUO_RB_TREE_HPP_
-#define NUOSTL_TEST_CORE_ASSOC_CONT_TEST_NUO_RB_TREE_HPP_
+#pragma once
 
 namespace test
 {
@@ -22,5 +21,3 @@ public:
 };
 
 } /* namespace test */
-
-#endif

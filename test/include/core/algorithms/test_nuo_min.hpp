@@ -1,5 +1,4 @@
-#ifndef NUO_TEST_CORE_ALGORITHMS_NUO_MIN_HPP_
-#define NUO_TEST_CORE_ALGORITHMS_NUO_MIN_HPP_
+#pragma once
 
 namespace test {
 
@@ -16,5 +15,3 @@ public:
 };
 
 }   /* namespace test */
-
-#endif

@@ -1,5 +1,4 @@
-#ifndef NUOSTL_TEST_CORE_ALGORITHMS_NUO_MAX_HPP
-#define NUOSTL_TEST_CORE_ALGORITHMS_NUO_MAX_HPP
+#pragma once
 
 namespace test {
 
@@ -16,5 +15,3 @@ public:
 };
 
 }   /* namespace test */
-
-#endif
