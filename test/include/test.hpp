@@ -9,6 +9,7 @@
 #include "core/assoc_cont/test_nuo_map.hpp"
 #include "core/assoc_cont/test_nuo_rb_tree.hpp"
 #include "core/assoc_cont/test_nuo_set.hpp"
+#include "core/assoc_cont/test_nuo_unordered_map.hpp"
 
 /* Sequence Containers */
 #include "core/seq_cont/test_nuo_array.hpp"

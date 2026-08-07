@@ -13,6 +13,8 @@ int main()
     test::TestNuoMultimap::test_nuo_multimap();
     test::TestNuoRbTree::test_nuo_rb_tree();
     test::Test_Nuo_Set::test_nuo_set();
+    test::TestNuoUnorderedMap::test_nuo_unordered_map();
+    test::TestNuoUnorderedMultimap::test_nuo_unordered_multimap();
 
     /* Sequence Containers */
     test::TestNuoArray::test_nuo_array();

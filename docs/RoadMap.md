@@ -29,8 +29,8 @@
 
 ### Associative Containers
 
-- [ ] NuoUnorderedMap – Similar to `std::unordered_map`
-- [ ] NuoUnorderedMultimap – Similar to `std::unordered_multimap`
+- [x] NuoUnorderedMap – Similar to `std::unordered_map`
+- [x] NuoUnorderedMultimap – Similar to `std::unordered_multimap`
 - [ ] NuoUnorderedMultiset – Similar to `std::unordered_multiset`
 - [ ] NuoUnorderedSet – Similar to `std::unordered_set`
 - [x] NuoMap – Similar to `std::map` (wraps `NuoRbTree`)
