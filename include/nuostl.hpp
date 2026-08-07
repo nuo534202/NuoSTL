@@ -9,6 +9,7 @@
 #include "core/assoc_cont/nuo_map.hpp"
 #include "core/assoc_cont/nuo_set.hpp"
 #include "core/assoc_cont/nuo_unordered_map.hpp"
+#include "core/assoc_cont/nuo_unordered_set.hpp"
 
 /* Sequence Container */
 #include "core/seq_cont/nuo_array.hpp"

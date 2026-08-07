@@ -15,6 +15,8 @@ int main()
     test::Test_Nuo_Set::test_nuo_set();
     test::TestNuoUnorderedMap::test_nuo_unordered_map();
     test::TestNuoUnorderedMultimap::test_nuo_unordered_multimap();
+    test::TestNuoUnorderedSet::test_nuo_unordered_set();
+    test::TestNuoUnorderedMultiset::test_nuo_unordered_multiset();
 
     /* Sequence Containers */
     test::TestNuoArray::test_nuo_array();
