@@ -26,10 +26,12 @@ int main()
     test::TestNuoQueue::test_nuo_queue();
     test::TestNuoStack::test_nuo_stack();
     test::Test_Nuo_Vector::test_nuo_vector();
+    test::TestNuoPriorityQueue::TestNuoPriorityQueueSuite();
     
     /* Algorithms */
     test::Test_Nuo_Max::test_nuo_max();
     test::Test_Nuo_Min::test_nuo_min();
+    test::TestNuoAlgorithm::TestNuoAlgorithmSuite();
 
     /* Extra */
     test::TestFraction::test_fraction();

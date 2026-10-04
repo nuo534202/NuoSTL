@@ -16,12 +16,15 @@
 #include "core/seq_cont/nuo_deque.hpp"
 #include "core/seq_cont/nuo_list.hpp"
 #include "core/seq_cont/nuo_queue.hpp"
+#include "core/seq_cont/nuo_priority_queue.hpp"
 #include "core/seq_cont/nuo_stack.hpp"
 #include "core/seq_cont/nuo_vector.hpp"
 
 /* Algorithms */
 #include "core/algorithms/nuo_max.hpp"
 #include "core/algorithms/nuo_min.hpp"
+#include "core/algorithms/nuo_heap.hpp"
+#include "core/algorithms/nuo_sort.hpp"
 #include "core/algorithms/nuo_sort_operation.hpp"
 
 /* 2. Extra Components */

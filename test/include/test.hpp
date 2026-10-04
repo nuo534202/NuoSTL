@@ -20,10 +20,12 @@
 #include "core/seq_cont/test_nuo_queue.hpp"
 #include "core/seq_cont/test_nuo_stack.hpp"
 #include "core/seq_cont/test_nuo_vector.hpp"
+#include "core/seq_cont/test_nuo_priority_queue.hpp"
 
 /* Algorithm */
 #include "core/algorithms/test_nuo_max.hpp"
 #include "core/algorithms/test_nuo_min.hpp"
+#include "core/algorithms/test_nuo_algorithm.hpp"
 
 /* 2. Extra Components */
 #include "extra/test_nuo_fraction.hpp"
