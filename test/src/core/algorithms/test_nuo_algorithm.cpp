@@ -4,12 +4,32 @@
 #include <algorithm>
 #include <cassert>
 #include <functional>
+#include <stdexcept>
 #include <vector>
 
 #include "nuostl.hpp"
 
 namespace test
 {
+
+namespace
+{
+
+template <typename Iterator, typename Compare>
+void AssertNthElementPartition(Iterator first, Iterator nth, Iterator last,
+                               Compare comp)
+{
+  for (Iterator current = first; current != nth; ++current)
+  {
+    assert(!comp(*nth, *current));
+  }
+  for (Iterator current = nth; current != last; ++current)
+  {
+    assert(!comp(*current, *nth));
+  }
+}
+
+} /* namespace */
 
 void TestNuoAlgorithm::TestNuoAlgorithmSuite()
 {
@@ -70,6 +90,82 @@ void TestNuoAlgorithm::TestNuoAlgorithmSuite()
   assert((merged == std::array<int, 6>{1, 2, 3, 4, 5, 6}));
   assert(nuostl::NuoBinarySearch(merged.begin(), merged.end(), 4));
   assert(!nuostl::NuoBinarySearch(merged.begin(), merged.end(), 7));
+
+  std::vector<int> sorted_values = {1, 1, 2, 3, 5};
+  assert(nuostl::NuoIsSorted(sorted_values.begin(), sorted_values.end()));
+  assert(nuostl::NuoIsSortedUntil(sorted_values.begin(),
+                                  sorted_values.end()) == sorted_values.end());
+
+  std::vector<int> unsorted_values = {1, 3, 2, 4};
+  assert(!nuostl::NuoIsSorted(unsorted_values.begin(), unsorted_values.end()));
+  assert(nuostl::NuoIsSortedUntil(unsorted_values.begin(),
+                                  unsorted_values.end()) ==
+         unsorted_values.begin() + 2);
+
+  std::vector<int> descending_values = {5, 4, 4, 2, 1};
+  assert(nuostl::NuoIsSorted(descending_values.begin(),
+                             descending_values.end(), std::greater<int>()));
+  descending_values[2] = 6;
+  assert(nuostl::NuoIsSortedUntil(descending_values.begin(),
+                                  descending_values.end(),
+                                  std::greater<int>()) ==
+         descending_values.begin() + 2);
+
+  std::vector<int> empty_values;
+  assert(nuostl::NuoIsSorted(empty_values.begin(), empty_values.end()));
+  assert(nuostl::NuoIsSortedUntil(empty_values.begin(),
+                                  empty_values.end()) == empty_values.end());
+
+  std::vector<int> nth_values = {9, 1, 5, 3, 7, 3, 2};
+  std::vector<int> nth_original = nth_values;
+  std::vector<int> sorted_copy = nth_original;
+  std::sort(sorted_copy.begin(), sorted_copy.end());
+  std::vector<int>::iterator nth =
+    nuostl::NuoNthElement(nth_values.begin(), nth_values.end(), 3);
+  assert(nth == nth_values.begin() + 3);
+  assert(*nth == sorted_copy[3]);
+  AssertNthElementPartition(nth_values.begin(), nth, nth_values.end(),
+                            std::less<int>());
+
+  std::vector<int> nth_descending = nth_original;
+  std::vector<int>::iterator nth_descending_position =
+    nuostl::NuoNthElement(nth_descending.begin(), nth_descending.end(), 2,
+                          std::greater<int>());
+  std::sort(sorted_copy.begin(), sorted_copy.end(), std::greater<int>());
+  assert(*nth_descending_position == sorted_copy[2]);
+  AssertNthElementPartition(nth_descending.begin(), nth_descending_position,
+                            nth_descending.end(), std::greater<int>());
+
+  std::vector<int> one_value = {42};
+  assert(nuostl::NuoNthElement(one_value.begin(), one_value.end(), 0) ==
+         one_value.begin());
+  assert(*one_value.begin() == 42);
+
+  assert(nuostl::NuoNthElement(empty_values.begin(), empty_values.end(), 0) ==
+         empty_values.end());
+
+  bool caught_out_of_range = false;
+  try
+  {
+    nuostl::NuoNthElement(nth_values.begin(), nth_values.end(),
+                          nth_values.size());
+  }
+  catch (const std::out_of_range&)
+  {
+    caught_out_of_range = true;
+  }
+  assert(caught_out_of_range);
+
+  caught_out_of_range = false;
+  try
+  {
+    nuostl::NuoNthElement(empty_values.begin(), empty_values.end(), 1);
+  }
+  catch (const std::out_of_range&)
+  {
+    caught_out_of_range = true;
+  }
+  assert(caught_out_of_range);
 
   std::array<int, 5> sortable = {5, 1, 4, 2, 3};
   nuostl::NuoSort(sortable.begin(), sortable.end());

@@ -1,136 +1,102 @@
 #pragma once
 
+#include <functional>
+
 #include "utils/nuo_exceptdef.hpp"
+#include "utils/nuo_iterator.hpp"
 #include "utils/nuo_util.hpp"
 
 namespace nuostl
 {
 
 template <typename ForwardIter, typename Compare>
-ForwardIter
-NuoIsSortedUntil(ForwardIter first, ForwardIter last, Compare comp)
+ForwardIter NuoIsSortedUntil(ForwardIter first, ForwardIter last,
+                             Compare comp)
 {
   if (first == last)
-    return last;
-
-  ForwardIter cur = first;
-  cur++;
-
-  for (; cur != last; first = cur, cur++)
   {
-    if (!comp(*first, *cur))
-      return cur;
+    return last;
   }
-
+  ForwardIter previous = first;
+  ForwardIter current = first;
+  ++current;
+  for (; current != last; ++previous, ++current)
+  {
+    if (comp(*current, *previous))
+    {
+      return current;
+    }
+  }
   return last;
 }
 
 template <typename ForwardIter>
-ForwardIter
-NuoIsSortedUntil(ForwardIter first, ForwardIter last)
+ForwardIter NuoIsSortedUntil(ForwardIter first, ForwardIter last)
 {
-  if (first == last)
-    return last;
-
-  ForwardIter cur = first;
-  cur++;
-
-  for (; cur != last; first = cur, cur++)
-  {
-    if (*first > *cur)
-      return cur;
-  }
-
-  return last;
+  return NuoIsSortedUntil(first, last, std::less<>());
 }
 
 template <typename ForwardIter, typename Compare>
-bool
-NuoIsSorted(ForwardIter first, ForwardIter last, Compare comp)
+bool NuoIsSorted(ForwardIter first, ForwardIter last, Compare comp)
 {
   return NuoIsSortedUntil(first, last, comp) == last;
 }
 
 template <typename ForwardIter>
-bool
-NuoIsSorted(ForwardIter first, ForwardIter last)
+bool NuoIsSorted(ForwardIter first, ForwardIter last)
 {
   return NuoIsSortedUntil(first, last) == last;
 }
 
-template <typename ForwardIter, typename Compare>
-ForwardIter
-NuoNthElement(ForwardIter first, ForwardIter last, size_t n, Compare comp)
+template <typename RandomIter, typename Compare>
+RandomIter NuoNthElement(RandomIter first, RandomIter last, size_t n,
+                         Compare comp)
 {
-  NUO_THROW_OUT_OF_RANGE_IF(NuoDistance(first, last) > n,
-    "out of range: there is less than n elements from the input!");
-
-  if (first == last)
-    return last;
-
-  ForwardIter tar = first, left = first, right = last;
-  while (left != right)
+  const size_t length = static_cast<size_t>(last - first);
+  if (length == 0)
   {
-    while (comp(*left, *tar) && left != right)
-      left++;
-    while (comp(*tar, *right) && left != right)
-      right--;
+    NUO_THROW_OUT_OF_RANGE_IF(n != 0,
+                              "nth element index is out of range");
+    return last;
+  }
+  NUO_THROW_OUT_OF_RANGE_IF(n >= length,
+                            "nth element index is out of range");
 
-    if (left != right)
+  RandomIter nth = first;
+  nth += static_cast<ptrdiff_t>(n);
+  for (RandomIter current = first; current != nth; ++current)
+  {
+    RandomIter best = current;
+    RandomIter candidate = current;
+    ++candidate;
+    for (; candidate != last; ++candidate)
     {
-      NuoSwap(left, right);
-      left++, right--;
+      if (comp(*candidate, *best))
+      {
+        best = candidate;
+      }
     }
+    NuoSwap(*current, *best);
   }
 
-  left++;
-  size_t k = NuoDistance(first, left);
-
-  if (k <= n)
-    return NuoNthElement(left, last, n - k);
-  else
-    return NuoNthElement(first, left, n);
-}
-
-template <typename ForwardIter, typename Compare>
-ForwardIter
-NuoNthElement(ForwardIter first, ForwardIter last, size_t n)
-{
-  NUO_THROW_OUT_OF_RANGE_IF(NuoDistance(first, last) > n,
-    "out of range: there is less than n elements from the input!");
-
-  if (first == last)
-    return last;
-
-  ForwardIter tar = first, left = first, right = last;
-  while (left != right)
+  RandomIter best = nth;
+  RandomIter candidate = nth;
+  ++candidate;
+  for (; candidate != last; ++candidate)
   {
-    while (*left <= *tar && left != right)
-      left++;
-    while (*right >= *tar && left != right)
-      right--;
-
-    if (left != right)
+    if (comp(*candidate, *best))
     {
-      NuoSwap(left, right);
-      left++, right--;
+      best = candidate;
     }
   }
-
-  left++;
-  size_t k = NuoDistance(first, left);
-
-  if (k <= n)
-    return NuoNthElement(left, last, n - k);
-  else
-    return NuoNthElement(first, left, n);
+  NuoSwap(*nth, *best);
+  return nth;
 }
 
-/*
-sort
-partial_sort
-partial_sort_copy
-stable_sort
-*/
+template <typename RandomIter>
+RandomIter NuoNthElement(RandomIter first, RandomIter last, size_t n)
+{
+  return NuoNthElement(first, last, n, std::less<>());
+}
 
 } /* namespace nuostl */
