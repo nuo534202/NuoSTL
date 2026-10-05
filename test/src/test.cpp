@@ -7,6 +7,7 @@ int main()
     /* Core */
     /* Data Types */
     test::Test_Nuo_Pair::test_nuo_pair();
+    test::TestNuoOptional::test_nuo_optional();
 
     /* Associative Containers */
     test::TestNuoMap::test_nuo_map();

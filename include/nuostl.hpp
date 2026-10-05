@@ -4,6 +4,7 @@
 
 /* Data Types */
 #include "core/data_types/nuo_pair.hpp"
+#include "core/data_types/nuo_optional.hpp"
 
 /* Associative Containers */
 #include "core/assoc_cont/nuo_map.hpp"

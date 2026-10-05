@@ -4,6 +4,7 @@
 
 /* Data Types */
 #include "core/data_types/test_nuo_pair.hpp"
+#include "core/data_types/test_nuo_optional.hpp"
 
 /* Associative Containers */
 #include "core/assoc_cont/test_nuo_map.hpp"
