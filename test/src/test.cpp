@@ -27,6 +27,7 @@ int main()
     test::TestNuoStack::test_nuo_stack();
     test::Test_Nuo_Vector::test_nuo_vector();
     test::TestNuoPriorityQueue::TestNuoPriorityQueueSuite();
+    test::TestNuoStringView::test_nuo_string_view();
     
     /* Algorithms */
     test::Test_Nuo_Max::test_nuo_max();

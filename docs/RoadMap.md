@@ -22,7 +22,7 @@
 - [x] NuoQueue – Similar to `std::queue`
 - [ ] NuoSlist (Single Linked List)
 - [x] NuoStack – Similar to `std::stack`
-- [ ] NuoStringView – Similar to `std::string_view`
+- [x] NuoStringView – Similar to `std::string_view`
 - [x] NuoVector – Similar to `std::vector`
   - TODO: replace `to_string` with `nuo_to_string`, refactor
 - [ ] NuoVectorBool – Similar to `std::vector<bool>`

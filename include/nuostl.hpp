@@ -18,6 +18,7 @@
 #include "core/seq_cont/nuo_queue.hpp"
 #include "core/seq_cont/nuo_priority_queue.hpp"
 #include "core/seq_cont/nuo_stack.hpp"
+#include "core/seq_cont/nuo_string_view.hpp"
 #include "core/seq_cont/nuo_vector.hpp"
 
 /* Algorithms */

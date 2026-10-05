@@ -21,6 +21,7 @@
 #include "core/seq_cont/test_nuo_stack.hpp"
 #include "core/seq_cont/test_nuo_vector.hpp"
 #include "core/seq_cont/test_nuo_priority_queue.hpp"
+#include "core/seq_cont/test_nuo_string_view.hpp"
 
 /* Algorithm */
 #include "core/algorithms/test_nuo_max.hpp"
