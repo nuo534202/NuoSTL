@@ -3,6 +3,7 @@
 /* 1. C++ STL Core Components */
 
 /* Data Types */
+#include "core/data_types/nuo_any.hpp"
 #include "core/data_types/nuo_pair.hpp"
 #include "core/data_types/nuo_optional.hpp"
 

@@ -4,7 +4,7 @@
 
 ### Data Types (TBD)
 
-- [ ] NuoAny – Similar to `std::any`
+- [x] NuoAny – Similar to `std::any`
 - [x] NuoOptional – Similar to `std::optional`
 - [x] NuoPair – Similar to `std::pair`
 - [ ] NuoString – Similar to `std::string`
