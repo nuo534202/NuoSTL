@@ -3,6 +3,8 @@
 namespace test
 {
 
+void TestNuoBinarySearchForwardList();
+
 class TestNuoAlgorithm
 {
 public:

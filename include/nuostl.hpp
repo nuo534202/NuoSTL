@@ -26,6 +26,7 @@
 /* Algorithms */
 #include "core/algorithms/nuo_max.hpp"
 #include "core/algorithms/nuo_min.hpp"
+#include "core/algorithms/nuo_binary_search.hpp"
 #include "core/algorithms/nuo_heap.hpp"
 #include "core/algorithms/nuo_sort.hpp"
 #include "core/algorithms/nuo_sort_operation.hpp"

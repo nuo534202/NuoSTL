@@ -7,6 +7,7 @@
 #include <memory>
 #include <type_traits>
 
+#include "core/algorithms/nuo_binary_search.hpp"
 #include "utils/nuo_construct.hpp"
 #include "utils/nuo_destroy.hpp"
 #include "utils/nuo_iterator.hpp"
@@ -197,63 +198,6 @@ OutputIterator NuoMerge(InputIterator1 first1, InputIterator1 last1,
                         OutputIterator output)
 {
   return NuoMerge(first1, last1, first2, last2, output, std::less<>());
-}
-
-template <typename ForwardIterator, typename T, typename Compare>
-bool NuoBinarySearch(ForwardIterator first, ForwardIterator last,
-                     const T& value, Compare comp)
-{
-  using Difference =
-    typename std::iterator_traits<ForwardIterator>::difference_type;
-  using Category =
-    typename std::iterator_traits<ForwardIterator>::iterator_category;
-  Difference count = 0;
-  if constexpr (std::is_base_of_v<NuoRandomAccessIteratorTag, Category> ||
-                std::is_base_of_v<std::random_access_iterator_tag, Category>)
-  {
-    count = last - first;
-  }
-  else
-  {
-    for (ForwardIterator current = first; current != last; ++current)
-    {
-      ++count;
-    }
-  }
-  while (count > 0)
-  {
-    auto step = count / 2;
-    ForwardIterator middle = first;
-    if constexpr (std::is_base_of_v<NuoRandomAccessIteratorTag, Category> ||
-                  std::is_base_of_v<std::random_access_iterator_tag, Category>)
-    {
-      middle += step;
-    }
-    else
-    {
-      for (decltype(step) offset = 0; offset < step; ++offset)
-      {
-        ++middle;
-      }
-    }
-    if (comp(*middle, value))
-    {
-      first = ++middle;
-      count -= step + 1;
-    }
-    else
-    {
-      count = step;
-    }
-  }
-  return first != last && !comp(value, *first);
-}
-
-template <typename ForwardIterator, typename T>
-bool NuoBinarySearch(ForwardIterator first, ForwardIterator last,
-                     const T& value)
-{
-  return NuoBinarySearch(first, last, value, std::less<>());
 }
 
 template <typename InputIterator, typename OutputIterator>

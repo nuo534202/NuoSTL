@@ -50,7 +50,10 @@
 ### Algorithms (TBD)
 
 - [ ] NuoAccumulate – Similar to `std::accumulate`
-- [ ] NuoBinarySearch – Similar to `std::binary_search`
+- [x] NuoBinarySearch – Similar to `std::binary_search`
+  - [x] NuoLowerBound – Similar to `std::lower_bound`
+  - [x] NuoUpperBound – Similar to `std::upper_bound`
+  - [x] NuoEqualRange – Similar to `std::equal_range`
 - [ ] NuoCopy – Similar to `std::copy`
 - [ ] NuoFind – Similar to `std::find`
 - [ ] NuoForEach – Similar to `std::for_each`
