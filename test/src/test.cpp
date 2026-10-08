@@ -7,6 +7,7 @@ int main()
     /* Core */
     /* Data Types */
     test::Test_Nuo_Pair::test_nuo_pair();
+    test::TestNuoString::test_nuo_string();
     test::TestNuoAny::test_nuo_any();
     test::TestNuoOptional::test_nuo_optional();
 

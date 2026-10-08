@@ -7,7 +7,7 @@
 - [x] NuoAny – Similar to `std::any`
 - [x] NuoOptional – Similar to `std::optional`
 - [x] NuoPair – Similar to `std::pair`
-- [ ] NuoString – Similar to `std::string`
+- [x] NuoString – Similar to `std::string`
 - [ ] NuoTuple – Similar to `std::tuple`
 - [ ] NuoVariant – Similar to `std::variant`
 
