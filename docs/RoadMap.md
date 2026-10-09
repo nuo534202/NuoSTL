@@ -17,8 +17,8 @@
 - [x] NuoDeque – Similar to `std::deque`
 - [x] NuoForwardList – Similar to `std::forward_list`
 - [x] NuoList – Similar to `std::list`
-- [ ] NuoPriorityQueue – Similar to `std::priority_queue`
-  - [ ] NuoHeap
+- [x] NuoPriorityQueue – Similar to `std::priority_queue`
+  - [x] NuoHeap
 - [x] NuoQueue – Similar to `std::queue`
 - [ ] NuoSlist (Single Linked List)
 - [x] NuoStack – Similar to `std::stack`

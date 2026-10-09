@@ -5,6 +5,7 @@
 #include <cassert>
 #include <functional>
 #include <forward_list>
+#include <memory>
 #include <string>
 #include <stdexcept>
 #include <vector>
@@ -383,6 +384,86 @@ void TestNuoAlgorithm::TestNuoAlgorithmSuite()
   assert(nuostl::NuoIsHeap(min_heap.begin(), min_heap.end(),
                            std::greater<int>()));
   assert(min_heap.front() == 1);
+
+  std::vector<int> empty_heap;
+  nuostl::NuoMakeHeap(empty_heap.begin(), empty_heap.end());
+  nuostl::NuoPushHeap(empty_heap.begin(), empty_heap.end());
+  nuostl::NuoPopHeap(empty_heap.begin(), empty_heap.end());
+  nuostl::NuoSortHeap(empty_heap.begin(), empty_heap.end());
+  assert(nuostl::NuoIsHeapUntil(empty_heap.begin(), empty_heap.end()) ==
+         empty_heap.end());
+
+  std::vector<int> singleton_heap = {42};
+  nuostl::NuoMakeHeap(singleton_heap.begin(), singleton_heap.end());
+  nuostl::NuoPushHeap(singleton_heap.begin(), singleton_heap.end());
+  nuostl::NuoPopHeap(singleton_heap.begin(), singleton_heap.end());
+  nuostl::NuoSortHeap(singleton_heap.begin(), singleton_heap.end());
+  assert(singleton_heap.front() == 42);
+
+  std::vector<int> invalid_heap = {9, 7, 8, 1, 10, 5, 4};
+  assert(!nuostl::NuoIsHeap(invalid_heap.begin(), invalid_heap.end()));
+  assert(nuostl::NuoIsHeapUntil(invalid_heap.begin(), invalid_heap.end()) ==
+         invalid_heap.begin() + 4);
+
+  const std::vector<int> heap_input = {7, 1, 9, 3, 9, 2, 6, 4};
+  for (bool ascending : {true, false})
+  {
+    auto compare = [ascending](int left, int right)
+    {
+      return ascending ? left < right : left > right;
+    };
+    std::vector<int> actual = heap_input;
+    std::vector<int> expected = heap_input;
+    nuostl::NuoMakeHeap(actual.begin(), actual.end(), compare);
+    std::make_heap(expected.begin(), expected.end(), compare);
+    assert(nuostl::NuoIsHeap(actual.begin(), actual.end(), compare));
+
+    actual.push_back(11);
+    expected.push_back(11);
+    nuostl::NuoPushHeap(actual.begin(), actual.end(), compare);
+    std::push_heap(expected.begin(), expected.end(), compare);
+    assert(nuostl::NuoIsHeap(actual.begin(), actual.end(), compare));
+
+    std::vector<int> actual_order;
+    std::vector<int> expected_order;
+    while (!actual.empty())
+    {
+      nuostl::NuoPopHeap(actual.begin(), actual.end(), compare);
+      std::pop_heap(expected.begin(), expected.end(), compare);
+      actual_order.push_back(actual.back());
+      expected_order.push_back(expected.back());
+      actual.pop_back();
+      expected.pop_back();
+    }
+    assert(actual_order == expected_order);
+
+    actual = heap_input;
+    expected = heap_input;
+    nuostl::NuoMakeHeap(actual.begin(), actual.end(), compare);
+    nuostl::NuoSortHeap(actual.begin(), actual.end(), compare);
+    std::sort(expected.begin(), expected.end(), compare);
+    assert(actual == expected);
+  }
+
+  auto pointer_compare = [](const std::unique_ptr<int>& left,
+                            const std::unique_ptr<int>& right)
+  {
+    return *left < *right;
+  };
+  std::vector<std::unique_ptr<int>> move_only_heap;
+  move_only_heap.emplace_back(std::make_unique<int>(3));
+  move_only_heap.emplace_back(std::make_unique<int>(1));
+  move_only_heap.emplace_back(std::make_unique<int>(4));
+  nuostl::NuoMakeHeap(move_only_heap.begin(), move_only_heap.end(),
+                      pointer_compare);
+  assert(nuostl::NuoIsHeap(move_only_heap.begin(), move_only_heap.end(),
+                           pointer_compare));
+  move_only_heap.emplace_back(std::make_unique<int>(5));
+  nuostl::NuoPushHeap(move_only_heap.begin(), move_only_heap.end(),
+                      pointer_compare);
+  nuostl::NuoPopHeap(move_only_heap.begin(), move_only_heap.end(),
+                     pointer_compare);
+  assert(*move_only_heap.back() == 5);
 }
 
 } /* namespace test */

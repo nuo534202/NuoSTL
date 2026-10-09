@@ -2,12 +2,47 @@
 
 #include <cassert>
 #include <functional>
+#include <memory>
 #include <vector>
 
 #include "nuostl.hpp"
 
 namespace test
 {
+
+namespace
+{
+
+struct StatefulCompare
+{
+  bool reverse = false;
+
+  bool operator()(int left, int right) const
+  {
+    return reverse ? left > right : left < right;
+  }
+};
+
+struct MoveOnlyValue
+{
+  explicit MoveOnlyValue(int value) : value(value)
+  {
+  }
+
+  MoveOnlyValue(const MoveOnlyValue&) = delete;
+  MoveOnlyValue& operator=(const MoveOnlyValue&) = delete;
+  MoveOnlyValue(MoveOnlyValue&&) = default;
+  MoveOnlyValue& operator=(MoveOnlyValue&&) = default;
+
+  bool operator<(const MoveOnlyValue& other) const
+  {
+    return value < other.value;
+  }
+
+  int value;
+};
+
+} /* namespace */
 
 void TestNuoPriorityQueue::TestNuoPriorityQueueSuite()
 {
@@ -56,6 +91,37 @@ void TestNuoPriorityQueue::TestNuoPriorityQueueSuite()
   vector_queue.Push(8);
   vector_queue.Push(6);
   assert(vector_queue.Top() == 8);
+
+  std::vector<int> seed = {100};
+  const std::vector<int> range = {2, 4};
+  nuostl::NuoPriorityQueue<int> range_queue(
+    range.begin(), range.end(), std::less<int>(), seed);
+  assert(range_queue.Size() == 3);
+  assert(range_queue.Top() == 100);
+  range_queue.Pop();
+  assert(range_queue.Top() == 4);
+
+  using StatefulQueue =
+    nuostl::NuoPriorityQueue<int, std::vector<int>, StatefulCompare>;
+  StatefulQueue max_stateful(StatefulCompare{false});
+  StatefulQueue min_stateful(StatefulCompare{true});
+  max_stateful.Push(1);
+  max_stateful.Push(3);
+  min_stateful.Push(1);
+  min_stateful.Push(3);
+  max_stateful.Swap(min_stateful);
+  max_stateful.Push(0);
+  min_stateful.Push(4);
+  assert(max_stateful.Top() == 0);
+  assert(min_stateful.Top() == 4);
+
+  nuostl::NuoPriorityQueue<MoveOnlyValue> move_only_queue;
+  move_only_queue.Emplace(3);
+  move_only_queue.Emplace(7);
+  move_only_queue.Emplace(1);
+  assert(move_only_queue.Top().value == 7);
+  move_only_queue.Pop();
+  assert(move_only_queue.Top().value == 3);
 }
 
 } /* namespace test */
