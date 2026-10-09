@@ -10,6 +10,7 @@ int main()
     test::TestNuoString::test_nuo_string();
     test::TestNuoAny::test_nuo_any();
     test::TestNuoOptional::test_nuo_optional();
+    test::TestNuoTuple::TestNuoTupleSuite();
 
     /* Associative Containers */
     test::TestNuoMap::test_nuo_map();

@@ -7,6 +7,7 @@
 #include "core/data_types/test_nuo_string.hpp"
 #include "core/data_types/test_nuo_any.hpp"
 #include "core/data_types/test_nuo_optional.hpp"
+#include "core/data_types/test_nuo_tuple.hpp"
 
 /* Associative Containers */
 #include "core/assoc_cont/test_nuo_map.hpp"
