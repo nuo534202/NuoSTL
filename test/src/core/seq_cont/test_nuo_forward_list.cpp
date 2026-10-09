@@ -3,11 +3,129 @@
 #include <assert.h>
 
 #include <string>
+#include <stdexcept>
+#include <utility>
 
 #include "core/seq_cont/nuo_forward_list.hpp"
 
 namespace test
 {
+
+namespace
+{
+
+struct ListLifetimeValue
+{
+  static inline int live_count = 0;
+  static inline int copies_before_throw = -1;
+
+  ListLifetimeValue();
+  ListLifetimeValue(const ListLifetimeValue& other);
+  ~ListLifetimeValue();
+};
+
+ListLifetimeValue::ListLifetimeValue()
+{
+  ++live_count;
+}
+
+ListLifetimeValue::ListLifetimeValue(const ListLifetimeValue&)
+{
+  if (copies_before_throw == 0)
+  {
+    throw std::runtime_error("copy failed");
+  }
+  if (copies_before_throw > 0)
+  {
+    --copies_before_throw;
+  }
+  ++live_count;
+}
+
+ListLifetimeValue::~ListLifetimeValue()
+{
+  --live_count;
+}
+
+} /* namespace */
+
+void TestNuoForwardList::TestResourceLifetime()
+{
+  using List = nuostl::NuoForwardList<ListLifetimeValue>;
+  {
+    ListLifetimeValue value;
+    List list(3, value);
+    assert(ListLifetimeValue::live_count == 4);
+    list.PopFront();
+    assert(ListLifetimeValue::live_count == 3);
+    list.EraseAfter(list.BeforeBegin());
+    assert(ListLifetimeValue::live_count == 2);
+    list.Clear();
+    list.Clear();
+    assert(ListLifetimeValue::live_count == 1);
+    list.PushFront(value);
+    List moved(std::move(list));
+    list.PushFront(value);
+    moved = std::move(list);
+    assert(ListLifetimeValue::live_count == 2);
+  }
+  assert(ListLifetimeValue::live_count == 0);
+
+  {
+    ListLifetimeValue value;
+    ListLifetimeValue::copies_before_throw = 1;
+    bool caught = false;
+    try
+    {
+      List list(3, value);
+    }
+    catch (const std::runtime_error&)
+    {
+      caught = true;
+    }
+    assert(caught && ListLifetimeValue::live_count == 1);
+
+    ListLifetimeValue::copies_before_throw = -1;
+    List list(2, value);
+    ListLifetimeValue::copies_before_throw = 0;
+    caught = false;
+    try
+    {
+      list.PushFront(value);
+    }
+    catch (const std::runtime_error&)
+    {
+      caught = true;
+    }
+    assert(caught && list.Size() == 2);
+    assert(ListLifetimeValue::live_count == 3);
+
+    List source;
+    ListLifetimeValue::copies_before_throw = -1;
+    source.Assign(3, value);
+    ListLifetimeValue::copies_before_throw = 1;
+    caught = false;
+    try
+    {
+      list = source;
+    }
+    catch (const std::runtime_error&)
+    {
+      caught = true;
+    }
+    assert(caught && list.Empty());
+    assert(ListLifetimeValue::live_count == 4);
+    ListLifetimeValue::copies_before_throw = -1;
+    list.PushFront(value);
+    assert(list.Size() == 1);
+  }
+  assert(ListLifetimeValue::live_count == 0);
+
+  /* Long strings expose repeated destruction of owning element types. */
+  nuostl::NuoForwardList<std::string> strings(4, std::string(200, 'x'));
+  strings.Clear();
+  strings.PushFront(std::string(300, 'y'));
+}
 
 void TestNuoForwardList::test_constructor()
 {
@@ -204,6 +322,7 @@ void TestNuoForwardList::test_merge_and_sort_reverse()
 
 void TestNuoForwardList::test_nuo_forward_list()
 {
+  TestResourceLifetime();
   test_constructor();
   test_assign();
   test_iterator_and_access();

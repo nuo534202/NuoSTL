@@ -5,6 +5,7 @@
 #include <initializer_list>
 #include <iostream>
 #include <iterator>
+#include <utility>
 
 /* support <ranges> */
 #if defined(__cpp_lib_ranges) && __cpp_lib_ranges >= 201911L
@@ -991,15 +992,20 @@ public:
     {
         if (_size == 0)
         {
-            std::allocator_traits<Allocator>::deallocate(_alloc, _data, _capacity);
+            if (_data != nullptr)
+            {
+                std::allocator_traits<Allocator>::deallocate(_alloc, _data, _capacity);
+            }
             _data = nullptr;
             _size = _capacity = 0;
             return;
         }
 
-        size_t new_capacity = _size;
+        const size_t new_capacity = _size;
         if (_capacity == new_capacity)
+        {
             return;
+        }
 
         pointer new_data = std::allocator_traits<Allocator>::allocate(_alloc, new_capacity);
 
@@ -1008,23 +1014,26 @@ public:
         {
             for (; i < _size; i++)
             {
-                std::allocator_traits<Allocator>::construct(_alloc, new_data + i, _data[i]);
-                std::allocator_traits<Allocator>::destroy(_alloc, _data + i);
+                std::allocator_traits<Allocator>::construct(
+                    _alloc, new_data + i, std::move_if_noexcept(_data[i]));
             }
         }
-        catch (const std::exception& e)
+        catch (...)
         {
             for (idx_t j = 0; j < i; j++)
+            {
                 std::allocator_traits<Allocator>::destroy(_alloc, new_data + j);
-            
+            }
             std::allocator_traits<Allocator>::deallocate(_alloc, new_data, new_capacity);
-            std::allocator_traits<Allocator>::deallocate(_alloc, _data, _capacity);
-            _data = new_data = nullptr;
-            _size = _capacity = 0;
-            std::cerr << e.what() << std::endl;
             throw;
         }
 
+        for (idx_t index = 0; index < _size; ++index)
+        {
+            std::allocator_traits<Allocator>::destroy(_alloc, _data + index);
+        }
+        std::allocator_traits<Allocator>::deallocate(_alloc, _data, _capacity);
+        _data = new_data;
         _capacity = new_capacity;
     }
 

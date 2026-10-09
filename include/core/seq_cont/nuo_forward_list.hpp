@@ -1113,7 +1113,15 @@ typename NuoForwardList<T, Allocator>::node_ptr
 NuoForwardList<T, Allocator>::CreateNode(const value_type& value)
 {
   node_ptr node = node_allocator::Allocate();
-  node_allocator::Construct(node, value);
+  try
+  {
+    node_allocator::Construct(node, value);
+  }
+  catch (...)
+  {
+    node_allocator::Deallocate(node);
+    throw;
+  }
   return node;
 }
 
@@ -1124,7 +1132,15 @@ typename NuoForwardList<T, Allocator>::node_ptr
 NuoForwardList<T, Allocator>::CreateNode(Args&& ...args)
 {
   node_ptr node = node_allocator::Allocate();
-  node_allocator::Construct(node, NuoForward<Args>(args)...);
+  try
+  {
+    node_allocator::Construct(node, NuoForward<Args>(args)...);
+  }
+  catch (...)
+  {
+    node_allocator::Deallocate(node);
+    throw;
+  }
   return node;
 }
 
@@ -1133,8 +1149,8 @@ template <typename T, class Allocator>
 void
 NuoForwardList<T, Allocator>::DestroyNode(node_ptr node)
 {
-  data_allocator::Destroy(&node->value_);
   node_allocator::Destroy(node);
+  node_allocator::Deallocate(node);
 }
 
 /* Add node to the front of the list */
@@ -1251,8 +1267,6 @@ NuoForwardList<T, Allocator>::CopyAssign(InputIter first, InputIter last)
   catch(...)
   {
     Clear();
-    base_allocator::Deallocate(head_);
-    head_ = nullptr, size_ = 0;
     throw;
   }
 }

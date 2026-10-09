@@ -4,6 +4,10 @@
 
 #include <stdexcept>
 #include <string>
+#include <utility>
+#include <iterator>
+#include <sstream>
+#include <vector>
 
 #include "core/seq_cont/nuo_deque.hpp"
 
@@ -12,6 +16,54 @@ namespace test
 
 namespace
 {
+
+/* Adapt a single-pass standard iterator to NuoSTL iterator tags. */
+class StreamInputIterator : public std::istream_iterator<int>
+{
+public:
+  using iterator_category = nuostl::NuoInputIteratorTag;
+
+  StreamInputIterator() = default;
+  explicit StreamInputIterator(std::istream& stream);
+};
+
+StreamInputIterator::StreamInputIterator(std::istream& stream)
+  : std::istream_iterator<int>(stream)
+{
+}
+
+struct DequeLifetimeValue
+{
+  static inline int live_count = 0;
+  static inline int copies_before_throw = -1;
+
+  DequeLifetimeValue();
+  DequeLifetimeValue(const DequeLifetimeValue& other);
+  ~DequeLifetimeValue();
+};
+
+DequeLifetimeValue::DequeLifetimeValue()
+{
+  ++live_count;
+}
+
+DequeLifetimeValue::DequeLifetimeValue(const DequeLifetimeValue&)
+{
+  if (copies_before_throw == 0)
+  {
+    throw std::runtime_error("copy failed");
+  }
+  if (copies_before_throw > 0)
+  {
+    --copies_before_throw;
+  }
+  ++live_count;
+}
+
+DequeLifetimeValue::~DequeLifetimeValue()
+{
+  --live_count;
+}
 
 /* an iterator that only advertises the input iterator tag,
    used to exercise the input-iterator dispatch paths */
@@ -68,6 +120,113 @@ private:
 };
 
 } /* anonymous namespace */
+
+void TestNuoDeque::TestResourceLifetime()
+{
+  using Deque = nuostl::NuoDeque<DequeLifetimeValue>;
+  constexpr auto buffer_size = Deque::kBufferSize;
+  {
+    DequeLifetimeValue value;
+    Deque deque(buffer_size * 3, value);
+    assert(DequeLifetimeValue::live_count == 1 + 3 * buffer_size);
+    deque.Clear();
+    deque.Clear();
+    assert(deque.Empty() && DequeLifetimeValue::live_count == 1);
+    for (std::size_t index = 0; index < buffer_size * 5; ++index)
+    {
+      deque.EmplaceFront(value);
+      deque.EmplaceBack(value);
+    }
+    assert(DequeLifetimeValue::live_count == 1 + 10 * buffer_size);
+    Deque source(buffer_size * 2, value);
+    deque = std::move(source);
+    assert(DequeLifetimeValue::live_count == 1 + 2 * buffer_size);
+    source.Clear();
+    source.ShrinkToFit();
+    source.EmplaceBack(value);
+    assert(source.Size() == 1);
+  }
+  assert(DequeLifetimeValue::live_count == 0);
+
+  {
+    DequeLifetimeValue value;
+    for (int allowance : {0, static_cast<int>(buffer_size) + 2})
+    {
+      DequeLifetimeValue::copies_before_throw = allowance;
+      bool caught = false;
+      try
+      {
+        Deque deque(buffer_size * 2, value);
+      }
+      catch (const std::runtime_error&)
+      {
+        caught = true;
+      }
+      assert(caught && DequeLifetimeValue::live_count == 1);
+    }
+    DequeLifetimeValue::copies_before_throw = -1;
+    Deque source(buffer_size * 2, value);
+    DequeLifetimeValue::copies_before_throw = static_cast<int>(buffer_size) + 2;
+    bool caught = false;
+    try
+    {
+      Deque copy(source);
+    }
+    catch (const std::runtime_error&)
+    {
+      caught = true;
+    }
+    assert(caught && DequeLifetimeValue::live_count == 1 + 2 * buffer_size);
+    DequeLifetimeValue::copies_before_throw = -1;
+
+    /* Retry a failed insertion after reserving an adjacent buffer. */
+    Deque edge(buffer_size - 1, value);
+    for (int attempt = 0; attempt < 2; ++attempt)
+    {
+      DequeLifetimeValue::copies_before_throw = 0;
+      caught = false;
+      try
+      {
+        edge.EmplaceBack(value);
+      }
+      catch (const std::runtime_error&)
+      {
+        caught = true;
+      }
+      assert(caught && edge.Size() == buffer_size - 1);
+    }
+    DequeLifetimeValue::copies_before_throw = -1;
+    edge.EmplaceBack(value);
+    edge.Clear();
+  }
+  assert(DequeLifetimeValue::live_count == 0);
+
+  nuostl::NuoDeque<std::string> strings(3000, std::string(200, 'x'));
+  strings.Clear();
+  strings.push_front(std::string(300, 'y'));
+  strings.push_back(std::string(400, 'z'));
+
+  std::vector<int> input(nuostl::NuoDeque<int>::kBufferSize * 2 + 3);
+  for (std::size_t index = 0; index < input.size(); ++index)
+  {
+    input[index] = static_cast<int>(index);
+  }
+  nuostl::NuoDeque<int> from_input(
+    TestInputIterator(input.data()), TestInputIterator(input.data() + input.size()));
+  assert(from_input.Size() == input.size());
+  for (std::size_t index = 0; index < input.size(); ++index)
+  {
+    assert(from_input[index] == input[index]);
+  }
+  std::istringstream stream("1 2 3 4 5");
+  nuostl::NuoDeque<int> from_stream{StreamInputIterator(stream),
+                                  StreamInputIterator()};
+  assert(from_stream.Size() == 5);
+  for (std::size_t index = 0; index < 5; ++index)
+  {
+    assert(from_stream[index] == static_cast<int>(index) + 1);
+  }
+}
 
 void TestNuoDeque::test_constructor()
 {
@@ -554,6 +713,7 @@ void TestNuoDeque::test_comparison_and_swap()
 
 void TestNuoDeque::test_nuo_deque()
 {
+  TestResourceLifetime();
   test_constructor();
   test_assign();
   test_iterator_and_access();

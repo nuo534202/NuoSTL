@@ -19,6 +19,7 @@ private:
     static void test_iterators();
 
     static void test_capacity();
+    static void TestShrinkLifetime();
 
     static void test_elem_access_by_at();
     static void test_elem_access_by_elem();

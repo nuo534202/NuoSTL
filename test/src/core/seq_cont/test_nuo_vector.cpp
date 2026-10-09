@@ -4,11 +4,97 @@
 
 #include <iostream>
 #include <vector>
+#include <memory>
+#include <stdexcept>
 
 #include "nuostl.hpp"
 
 namespace test
 {
+
+namespace
+{
+
+struct VectorShrinkValue
+{
+    static inline int live_count = 0;
+    static inline int copies_before_throw = -1;
+
+    VectorShrinkValue();
+    VectorShrinkValue(const VectorShrinkValue& other);
+    ~VectorShrinkValue();
+
+    int value = 0;
+};
+
+VectorShrinkValue::VectorShrinkValue()
+{
+    ++live_count;
+}
+
+VectorShrinkValue::VectorShrinkValue(const VectorShrinkValue& other)
+    : value(other.value)
+{
+    if (copies_before_throw == 0)
+    {
+        /* Exercise rollback for exceptions outside std::exception. */
+        throw 42;
+    }
+    if (copies_before_throw > 0)
+    {
+        --copies_before_throw;
+    }
+    ++live_count;
+}
+
+VectorShrinkValue::~VectorShrinkValue()
+{
+    --live_count;
+}
+
+} /* namespace */
+
+void Test_Nuo_Vector::TestShrinkLifetime()
+{
+    {
+        nuostl::nuo_vector<VectorShrinkValue> values(4);
+        values.pop_back();
+        values[0].value = 11;
+        values[1].value = 22;
+        values[2].value = 33;
+        auto* original_data = values.data();
+        const auto original_capacity = values.capacity();
+        for (int allowance : {0, 1})
+        {
+            VectorShrinkValue::copies_before_throw = allowance;
+            bool caught = false;
+            try
+            {
+                values.shrink_to_fit();
+            }
+            catch (int error)
+            {
+                caught = error == 42;
+            }
+            assert(caught && VectorShrinkValue::live_count == 3);
+            assert(values.data() == original_data);
+            assert(values.capacity() == original_capacity && values.size() == 3);
+            assert(values[0].value == 11 && values[1].value == 22);
+            assert(values[2].value == 33);
+        }
+        VectorShrinkValue::copies_before_throw = -1;
+        values.shrink_to_fit();
+        assert(VectorShrinkValue::live_count == 3);
+        assert(values[0].value == 11 && values[2].value == 33);
+    }
+    assert(VectorShrinkValue::live_count == 0);
+
+    nuostl::nuo_vector<std::unique_ptr<int>> pointers(2);
+    pointers[0] = std::make_unique<int>(17);
+    pointers.pop_back();
+    pointers.shrink_to_fit();
+    assert(pointers.size() == 1 && *pointers[0] == 17);
+}
 
 /* test correctness */
 /* TODO: did not test all constructor and copy constructor */
@@ -388,6 +474,22 @@ void Test_Nuo_Vector::test_capacity()
     v6.shrink_to_fit();
     assert(v6.capacity() >= 2);
     assert(v6.size() == 2);
+    assert(v6[0] == 1 && v6[1] == 2);
+    v6[0] = 7;
+    v6.shrink_to_fit();
+    assert(v6[0] == 7);
+
+    /* Owning elements must survive storage replacement exactly once. */
+    nuostl::nuo_vector<std::string> strings;
+    strings.reserve(20);
+    strings.push_back(std::string(200, 'x'));
+    strings.push_back(std::string(300, 'y'));
+    strings.shrink_to_fit();
+    assert(strings[0] == std::string(200, 'x'));
+    assert(strings[1] == std::string(300, 'y'));
+    strings.clear();
+    strings.shrink_to_fit();
+    assert(strings.empty());
     
     // Test max_size()
     nuostl::nuo_vector<int> v7;
@@ -1095,6 +1197,7 @@ void Test_Nuo_Vector::test_clear()
 
 void Test_Nuo_Vector::test_nuo_vector()
 {
+    TestShrinkLifetime();
     /* test correctness */
     test_constructor();
     test_copy_constructor();

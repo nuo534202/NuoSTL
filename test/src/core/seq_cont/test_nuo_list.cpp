@@ -3,11 +3,103 @@
 #include <assert.h>
 
 #include <string>
+#include <stdexcept>
 
 #include "core/seq_cont/nuo_list.hpp"
 
 namespace test
 {
+
+namespace
+{
+
+struct BidirectionalListValue
+{
+  static inline int live_count = 0;
+  static inline int copies_before_throw = -1;
+
+  BidirectionalListValue();
+  BidirectionalListValue(const BidirectionalListValue& other);
+  ~BidirectionalListValue();
+};
+
+BidirectionalListValue::BidirectionalListValue()
+{
+  ++live_count;
+}
+
+BidirectionalListValue::BidirectionalListValue(const BidirectionalListValue&)
+{
+  if (copies_before_throw == 0)
+  {
+    throw std::runtime_error("copy failed");
+  }
+  if (copies_before_throw > 0)
+  {
+    --copies_before_throw;
+  }
+  ++live_count;
+}
+
+BidirectionalListValue::~BidirectionalListValue()
+{
+  --live_count;
+}
+
+} /* namespace */
+
+void TestNuoList::TestResourceLifetime()
+{
+  using List = nuostl::NuoList<BidirectionalListValue>;
+  {
+    BidirectionalListValue value;
+    List list(3, value);
+    assert(BidirectionalListValue::live_count == 4);
+    list.PopFront();
+    assert(BidirectionalListValue::live_count == 3);
+    list.PopBack();
+    assert(BidirectionalListValue::live_count == 2);
+    list.Clear();
+    list.Clear();
+    assert(list.Empty() && BidirectionalListValue::live_count == 1);
+    list.PushBack(value);
+    List source(3, value);
+    list = source;
+    assert(list.Size() == 3 && BidirectionalListValue::live_count == 7);
+
+    BidirectionalListValue::copies_before_throw = 1;
+    bool caught = false;
+    try
+    {
+      list = source;
+    }
+    catch (const std::runtime_error&)
+    {
+      caught = true;
+    }
+    assert(caught && list.Empty());
+    assert(BidirectionalListValue::live_count == 4);
+    BidirectionalListValue::copies_before_throw = -1;
+    list.PushBack(value);
+
+    BidirectionalListValue::copies_before_throw = 1;
+    caught = false;
+    try
+    {
+      List failing(3, value);
+    }
+    catch (const std::runtime_error&)
+    {
+      caught = true;
+    }
+    assert(caught && BidirectionalListValue::live_count == 5);
+    BidirectionalListValue::copies_before_throw = -1;
+  }
+  assert(BidirectionalListValue::live_count == 0);
+  nuostl::NuoList<std::string> strings(4, std::string(200, 'x'));
+  strings.Clear();
+  strings.PushBack(std::string(300, 'y'));
+}
 
 void TestNuoList::test_constructor()
 {
@@ -63,6 +155,15 @@ void TestNuoList::test_iterator_and_access()
 {
   nuostl::NuoList<int> l1{1, 2, 3, 4, 5};
 
+  assert(l1.Begin() != l1.End());
+  assert(!(l1.Begin() != l1.Begin()));
+  int total = 0;
+  for (auto it = l1.Begin(); it != l1.End(); ++it)
+  {
+    total += *it;
+  }
+  assert(total == 15);
+
   assert(l1.Front() == 1);
   assert(l1.Back() == 5);
 
@@ -72,6 +173,14 @@ void TestNuoList::test_iterator_and_access()
   assert(l1.Back() == 55);
 
   const nuostl::NuoList<int> l2{6, 7, 8};
+  assert(l2.Begin() != l2.End());
+  assert(!(l2.Begin() != l2.Begin()));
+  total = 0;
+  for (auto it = l2.Begin(); it != l2.End(); ++it)
+  {
+    total += *it;
+  }
+  assert(total == 21);
   assert(l2.Front() == 6);
   assert(l2.Back() == 8);
 }
@@ -144,6 +253,7 @@ void TestNuoList::test_clear_and_swap()
 
 void TestNuoList::test_nuo_list()
 {
+  TestResourceLifetime();
   test_constructor();
   test_assign();
   test_iterator_and_access();

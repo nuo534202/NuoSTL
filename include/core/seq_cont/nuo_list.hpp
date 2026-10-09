@@ -152,7 +152,7 @@ public:
 
   bool operator!=(const self& rhs) const
   {
-    return node_ == rhs.node_;
+    return node_ != rhs.node_;
   }
 
   base_ptr node_;
@@ -229,7 +229,7 @@ public:
 
   bool operator!=(const self& rhs) const
   {
-    return node_ == rhs.node_;
+    return node_ != rhs.node_;
   }
 
   base_ptr node_;
@@ -473,7 +473,10 @@ typename NuoList<T>::NuoList&
 NuoList<T>::operator=(const NuoList& nlist)
 {
   if (this != &nlist)
+  {
+    Clear();
     CopyAssign(nlist.Begin(), nlist.End());
+  }
 
   return *this;
 }
@@ -896,7 +899,7 @@ NuoList<T>::Clear() noexcept
     cur = next;
   }
 
-  UnlinkNodes(tail_, tail_);
+  tail_->Unlink();
   size_ = 0;
 }
 
@@ -1125,7 +1128,15 @@ typename NuoList<T>::node_ptr
 NuoList<T>::CreateNode(const value_type& value)
 {
   node_ptr node = node_allocator::Allocate();
-  node_allocator::Construct(node, value);
+  try
+  {
+    node_allocator::Construct(node, value);
+  }
+  catch (...)
+  {
+    node_allocator::Deallocate(node);
+    throw;
+  }
   return node;
 }
 
@@ -1133,8 +1144,8 @@ template <typename T>
 void
 NuoList<T>::DestroyNode(node_ptr node)
 {
-  data_allocator::Destroy(&node->value_);
   node_allocator::Destroy(node);
+  node_allocator::Deallocate(node);
 }
 
 template <typename T>
@@ -1273,8 +1284,6 @@ NuoList<T>::CopyAssign(InputIter first, InputIter last)
   catch(...)
   {
     Clear();
-    base_allocator::Deallocate(tail_);
-    tail_ = nullptr, size_ = 0;
     throw;
   }
 }
@@ -1297,8 +1306,6 @@ NuoList<T>::CopyAssign(size_type n, const value_type& value)
   catch(...)
   {
     Clear();
-    base_allocator::Deallocate(tail_);
-    tail_ = nullptr, size_ = 0;
     throw;
   }
 }

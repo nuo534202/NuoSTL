@@ -16,6 +16,7 @@ private:
   static void test_splice();
   static void test_remove_and_unique();
   static void test_merge_and_sort_reverse();
+  static void TestResourceLifetime();
 
 public:
   static void test_nuo_forward_list();

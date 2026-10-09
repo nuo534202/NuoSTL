@@ -260,6 +260,7 @@ private:
   void RequireCapacity(size_type n, bool front);
   void ReallocateMapAtFront(size_type need_buffer);
   void ReallocateMapAtBack(size_type need_buffer);
+  constexpr void ReleaseStorage() noexcept;
 
 private:
   iterator        begin_;
@@ -604,14 +605,7 @@ constexpr NuoDeque<T>::NuoDeque(std::initializer_list<value_type> ilist)
 template <typename T>
 constexpr NuoDeque<T>::~NuoDeque()
 {
-  if (map_ != nullptr)
-  {
-    Clear();
-    data_allocator::Deallocate(*begin_.node_, kBufferSize);
-    *begin_.node_ = nullptr;
-    map_allocator::Deallocate(map_, map_size_);
-    map_ = nullptr;
-  }
+  ReleaseStorage();
 }
 
 /* assignment */
@@ -641,7 +635,7 @@ constexpr NuoDeque<T>& NuoDeque<T>::operator=(NuoDeque&& rhs)
 {
   if (this != &rhs)
   {
-    Clear();
+    ReleaseStorage();
     begin_ = NuoMove(rhs.begin_);
     end_ = NuoMove(rhs.end_);
     map_ = rhs.map_;
@@ -812,6 +806,10 @@ constexpr void NuoDeque<T>::Resize(size_type size, const value_type& value)
 template <typename T>
 constexpr void NuoDeque<T>::ShrinkToFit()
 {
+  if (map_ == nullptr)
+  {
+    return;
+  }
   for (map_pointer cur = map_; cur < begin_.node_; cur++)
   {
     data_allocator::Deallocate(*cur, kBufferSize);
@@ -1156,6 +1154,10 @@ NuoDeque<T>::Erase(const_iterator first, const_iterator last)
 template <typename T>
 constexpr void NuoDeque<T>::Clear() noexcept
 {
+  if (map_ == nullptr)
+  {
+    return;
+  }
   for (map_pointer cur = begin_.node_ + 1; cur < end_.node_; cur++)
   {
     data_allocator::Destroy(*cur, *cur + kBufferSize);
@@ -1170,8 +1172,23 @@ constexpr void NuoDeque<T>::Clear() noexcept
   {
     data_allocator::Destroy(begin_.cur_, end_.cur_);
   }
-  ShrinkToFit();
   end_ = begin_;
+  ShrinkToFit();
+}
+
+template <typename T>
+constexpr void NuoDeque<T>::ReleaseStorage() noexcept
+{
+  if (map_ != nullptr)
+  {
+    Clear();
+    DestroyBuffer(begin_.node_, begin_.node_);
+    map_allocator::Deallocate(map_, map_size_);
+  }
+  begin_ = iterator();
+  end_ = iterator();
+  map_ = nullptr;
+  map_size_ = 0;
 }
 
 template <typename T>
@@ -1286,11 +1303,20 @@ template <typename T>
 void NuoDeque<T>::FillInit(size_type n, const value_type& value)
 {
   MapInit(n);
-  if (n != 0)
+  const iterator finish = end_;
+  end_ = begin_;
+  try
   {
-    for (map_pointer cur = begin_.node_; cur < end_.node_; cur++)
-      NuoUninitializedFill(*cur, *cur + kBufferSize, value);
-    NuoUninitializedFill(end_.first_, end_.cur_, value);
+    while (end_ != finish)
+    {
+      data_allocator::Construct(end_.cur_, value);
+      ++end_;
+    }
+  }
+  catch (...)
+  {
+    ReleaseStorage();
+    throw;
   }
 }
 
@@ -1300,11 +1326,19 @@ void NuoDeque<T>::CopyInit(InputIter first,
                            InputIter last,
                            NuoInputIteratorTag)
 {
-  const size_type n = static_cast<size_type>(NuoDistance(first, last));
-  MapInit(n);
-  pointer cur = begin_.cur_;
-  for (; first != last; ++first, ++cur)
-    data_allocator::Construct(cur, *first);
+  MapInit(0);
+  try
+  {
+    for (; first != last; ++first)
+    {
+      EmplaceBack(*first);
+    }
+  }
+  catch (...)
+  {
+    ReleaseStorage();
+    throw;
+  }
 }
 
 template <typename T>
@@ -1315,14 +1349,20 @@ void NuoDeque<T>::CopyInit(ForwardIter first,
 {
   const size_type n = static_cast<size_type>(NuoDistance(first, last));
   MapInit(n);
-  for (map_pointer cur = begin_.node_; cur < end_.node_; cur++)
+  end_ = begin_;
+  try
   {
-    ForwardIter next = first;
-    NuoAdvance(next, static_cast<difference_type>(kBufferSize));
-    NuoUninitializedCopy(first, next, *cur);
-    first = next;
+    for (; first != last; ++first)
+    {
+      data_allocator::Construct(end_.cur_, *first);
+      ++end_;
+    }
   }
-  NuoUninitializedCopy(first, last, end_.first_);
+  catch (...)
+  {
+    ReleaseStorage();
+    throw;
+  }
 }
 
 /* assign */
@@ -1669,26 +1709,31 @@ void NuoDeque<T>::RequireCapacity(size_type n, bool front)
   if (front && (static_cast<size_type>(begin_.cur_ - begin_.first_) < n))
   {
     const size_type need_buffer =
-      (n - static_cast<size_type>(begin_.cur_ - begin_.first_))
+      (n - static_cast<size_type>(begin_.cur_ - begin_.first_) - 1)
         / kBufferSize + 1;
     if (need_buffer > static_cast<size_type>(begin_.node_ - map_))
     {
+      ShrinkToFit();
       ReallocateMapAtFront(need_buffer);
       return;
     }
+    /* A failed construction can leave unused buffers in these slots. */
+    DestroyBuffer(begin_.node_ - need_buffer, begin_.node_ - 1);
     CreateBuffer(begin_.node_ - need_buffer, begin_.node_ - 1);
   }
   else if (!front && (static_cast<size_type>(end_.last_ - end_.cur_ - 1) < n))
   {
     const size_type need_buffer =
-      (n - static_cast<size_type>(end_.last_ - end_.cur_ - 1))
+      (n - static_cast<size_type>(end_.last_ - end_.cur_ - 1) - 1)
         / kBufferSize + 1;
     if (need_buffer > static_cast<size_type>((map_ + map_size_)
                                              - end_.node_ - 1))
     {
+      ShrinkToFit();
       ReallocateMapAtBack(need_buffer);
       return;
     }
+    DestroyBuffer(end_.node_ + 1, end_.node_ + need_buffer);
     CreateBuffer(end_.node_ + 1, end_.node_ + need_buffer);
   }
 }
@@ -1709,7 +1754,15 @@ void NuoDeque<T>::ReallocateMapAtFront(size_type need_buffer)
   map_pointer begin = new_map + (new_map_size - new_buffer) / 2;
   map_pointer mid = begin + need_buffer;
   map_pointer end = mid + old_buffer;
-  CreateBuffer(begin, mid - 1);
+  try
+  {
+    CreateBuffer(begin, mid - 1);
+  }
+  catch (...)
+  {
+    map_allocator::Deallocate(new_map, new_map_size);
+    throw;
+  }
   for (map_pointer p1 = mid, p2 = begin_.node_; p1 != end; ++p1, ++p2)
     *p1 = *p2;
 
@@ -1739,7 +1792,15 @@ void NuoDeque<T>::ReallocateMapAtBack(size_type need_buffer)
   map_pointer end = mid + need_buffer;
   for (map_pointer p1 = begin, p2 = begin_.node_; p1 != mid; ++p1, ++p2)
     *p1 = *p2;
-  CreateBuffer(mid, end - 1);
+  try
+  {
+    CreateBuffer(mid, end - 1);
+  }
+  catch (...)
+  {
+    map_allocator::Deallocate(new_map, new_map_size);
+    throw;
+  }
 
   /* update data */
   map_allocator::Deallocate(map_, map_size_);

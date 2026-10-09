@@ -12,6 +12,7 @@ private:
   static void test_push_pop();
   static void test_insert_erase();
   static void test_clear_and_swap();
+  static void TestResourceLifetime();
 
 public:
   static void test_nuo_list();
