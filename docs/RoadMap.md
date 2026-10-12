@@ -102,6 +102,14 @@
 - [x] NuoSetUnion – Similar to `std::set_union`
 - [x] NuoShuffle – Similar to `std::shuffle`
 
+### Numeric Algorithms
+
+- [x] NuoAccumulate – Similar to `std::accumulate` (declared with the utility algorithms)
+- [x] NuoAdjacentDifference – Similar to `std::adjacent_difference`
+- [x] NuoInnerProduct – Similar to `std::inner_product`
+- [x] NuoIota – Similar to `std::iota`
+- [x] NuoPartialSum – Similar to `std::partial_sum`
+
 ### Function Objects (Functors)
 
 - [x] NuoDivides – Similar to `std::divides`

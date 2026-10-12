@@ -41,6 +41,7 @@ int main()
     test::TestNuoAlgorithm::TestNuoAlgorithmSuite();
     test::TestNuoSequenceOperations::TestSuite();
     test::TestNuoSetOperations::TestSuite();
+    test::TestNuoNumeric::TestSuite();
 
     /* Extra */
     test::TestNuoPoolAllocator::TestSuite();
