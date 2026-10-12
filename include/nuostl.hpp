@@ -40,6 +40,7 @@
 
 /* 2. Extra Components */
 #include "extra/nuo_fraction.hpp"
+#include "extra/nuo_big_integer.hpp"
 
 /* 3. Utils */
 #include "utils/nuo_allocator.hpp"

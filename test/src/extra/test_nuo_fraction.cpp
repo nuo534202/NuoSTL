@@ -36,6 +36,10 @@ void TestFraction::test_fraction()
 
     /* Normalize */
     test_normalize();
+
+    /* Invariants after arithmetic */
+    test_arithmetic_sign_normalization();
+    test_divide_by_zero_fraction();
 }
 
 void TestFraction::test_default_constructor()
@@ -500,6 +504,68 @@ void TestFraction::test_normalize()
        Normalize should make down positive.
        After gcd reduction the result should have down_ > 0 */
     assert(result.GetDown() > 0);
+}
+
+void TestFraction::test_arithmetic_sign_normalization()
+{
+    /* Subtraction whose result is negative. */
+    nuostl::Fraction a(1, 2);
+    a - nuostl::Fraction(3, 4);
+    assert(a.GetUp() == -1);
+    assert(a.GetDown() == 4);
+
+    /* Addition whose result is negative. */
+    nuostl::Fraction g(1, 2);
+    g + nuostl::Fraction(-2, 3);
+    assert(g.GetUp() == -1);
+    assert(g.GetDown() == 6);
+
+    /* Multiplication whose result is negative. */
+    nuostl::Fraction b(1, 2);
+    b * nuostl::Fraction(-1, 3);
+    assert(b.GetUp() == -1);
+    assert(b.GetDown() == 6);
+
+    nuostl::Fraction c(-1, 2);
+    c * nuostl::Fraction(1, 3);
+    assert(c.GetUp() == -1);
+    assert(c.GetDown() == 6);
+
+    /* Division moves the divisor numerator sign onto the denominator. */
+    nuostl::Fraction d(1, 2);
+    d / nuostl::Fraction(-2, 5);
+    assert(d.GetUp() == -5);
+    assert(d.GetDown() == 4);
+
+    nuostl::Fraction e(-1, 2);
+    e / nuostl::Fraction(2, 5);
+    assert(e.GetUp() == -5);
+    assert(e.GetDown() == 4);
+
+    /* A positive result keeps a positive denominator. */
+    nuostl::Fraction f(-1, 2);
+    f / nuostl::Fraction(-2, 5);
+    assert(f.GetUp() == 5);
+    assert(f.GetDown() == 4);
+}
+
+void TestFraction::test_divide_by_zero_fraction()
+{
+    nuostl::Fraction value(1, 2);
+    bool caught = false;
+    try
+    {
+        value / nuostl::Fraction(0, 1);
+    }
+    catch (const std::invalid_argument&)
+    {
+        caught = true;
+    }
+    assert(caught);
+
+    /* A failed division must leave the left operand untouched. */
+    assert(value.GetUp() == 1);
+    assert(value.GetDown() == 2);
 }
 
 }   /* namespace test */

@@ -27,6 +27,8 @@ private:
     static void test_set_down_zero();
 
     static void test_normalize();
+    static void test_arithmetic_sign_normalization();
+    static void test_divide_by_zero_fraction();
 };
 
 }   /* namespace test */

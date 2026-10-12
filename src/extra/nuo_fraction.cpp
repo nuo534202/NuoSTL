@@ -33,6 +33,7 @@ Fraction& Fraction::operator+(const Fraction& frac)
 
     up_ = static_cast<int64>(new_up / up_down_gcd);
     down_ = static_cast<int64>(new_down / up_down_gcd);
+    Normalize();
 
     return *this;
 }
@@ -50,6 +51,7 @@ Fraction& Fraction::operator-(const Fraction& frac)
 
     up_ = static_cast<int64>(new_up / up_down_gcd);
     down_ = static_cast<int64>(new_down / up_down_gcd);
+    Normalize();
 
     return *this;
 }
@@ -67,12 +69,16 @@ Fraction& Fraction::operator*(const Fraction& frac)
 
     up_ = static_cast<int64>(new_up / up_down_gcd);
     down_ = static_cast<int64>(new_down / up_down_gcd);
+    Normalize();
 
     return *this;
 }
 
 Fraction& Fraction::operator/(const Fraction& frac)
 {
+    if (frac.up_ == 0)
+        throw std::invalid_argument("Fraction: cannot divide by zero!");
+
     int128 lhs_up = static_cast<int128>(up_);
     int128 lhs_down = static_cast<int128>(down_);
     int128 rhs_up = static_cast<int128>(frac.up_);
@@ -84,6 +90,7 @@ Fraction& Fraction::operator/(const Fraction& frac)
 
     up_ = static_cast<int64>(new_up / up_down_gcd);
     down_ = static_cast<int64>(new_down / up_down_gcd);
+    Normalize();
 
     return *this;
 }

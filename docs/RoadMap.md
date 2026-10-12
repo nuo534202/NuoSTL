@@ -20,7 +20,6 @@
 - [x] NuoPriorityQueue – Similar to `std::priority_queue`
   - [x] NuoHeap
 - [x] NuoQueue – Similar to `std::queue`
-- [ ] NuoSlist (Single Linked List)
 - [x] NuoStack – Similar to `std::stack`
 - [x] NuoStringView – Similar to `std::string_view`
 - [x] NuoVector – Similar to `std::vector`
@@ -129,8 +128,8 @@
 
 ## 2. Extra Components (TBD)
 
-- [ ] BigInteger Class – Arbitrary precision integer type
+- [x] BigInteger Class – Arbitrary precision integer type ([API](api/extra/big_integer.md))
 - [ ] Complex Number Class – Similar to `std::complex` but extended
-- [x] Fraction Class – Rational number representation
+- [x] Fraction Class – Rational number representation ([API](api/extra/fraction.md))
 - [ ] Matrix Class – Linear algebra support
 - [ ] Polynomial Class – Symbolic polynomial arithmetic

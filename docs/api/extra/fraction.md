@@ -11,14 +11,15 @@ This lets you represent values like `1/3`, `2/10`, `123/1000`, etc. exactly (as 
 
 - **Range**: You must ensure that all intermediate results fit into `__int128_t` (only available on gcc and clang), and final results fit into `long long` (`int64`). If you violate this, behavior/logic may be incorrect. This library does not attempt to detect all overflows.
 - **Denominator must be non-zero**: constructing or setting a denominator of `0` throws `std::invalid_argument`.
-- **Normalization rule**: the implementation normalizes signs so the denominator is kept positive when `Normalize()` is executed (the sign is moved to the numerator).
+- **Normalization rule**: the implementation normalizes signs so the denominator is kept positive. This holds after construction and after every arithmetic operation (the sign lives in the numerator).
+- **Division by zero**: dividing by a fraction whose numerator is `0` throws `std::invalid_argument`, and the left-hand operand is left unchanged.
 
 ## Header
 
 1. only include `fraction.hpp`
 
 ```cpp
-#include "extra/fraction.hpp"
+#include "extra/nuo_fraction.hpp"
 ```
 
 2. include universal header `nuostl.hpp` to get all NuoSTL features
@@ -50,7 +51,7 @@ Creates `0/1`.
 
 ```cpp
 nuostl::Fraction f;
-// f == 0/1
+/* f == 0/1 */
 ```
 
 ### Value constructor
@@ -68,7 +69,7 @@ Example:
 #include <assert.h>
 #include <stdexcept>
 
-#include "extra/fraction.hpp"
+#include "extra/nuo_fraction.hpp"
 
 void fraction_constructor_examples()
 {
@@ -76,12 +77,12 @@ void fraction_constructor_examples()
     assert(a.GetUp() == 1);
     assert(a.GetDown() == 2);
 
-    // Normalization: sign moves to numerator
+    /* Normalization: sign moves to numerator */
     nuostl::Fraction b(3, -4);
     assert(b.GetUp() == -3);
     assert(b.GetDown() == 4);
 
-    // Denominator = 0 throws
+    /* Denominator = 0 throws */
     bool caught = false;
     try {
         nuostl::Fraction bad(1, 0);
@@ -111,27 +112,27 @@ Example:
 ```cpp
 #include <assert.h>
 
-#include "extra/fraction.hpp"
+#include "extra/nuo_fraction.hpp"
 
 void fraction_arithmetic_examples()
 {
     nuostl::Fraction a(1, 2);
     nuostl::Fraction b(1, 3);
 
-    // WARNING: this mutates a
-    a + b; // a becomes 1/2 + 1/3 = 5/6
+    /* WARNING: this mutates a */
+    a + b;                              /* a becomes 1/2 + 1/3 = 5/6 */
     assert(a.GetUp() == 5);
     assert(a.GetDown() == 6);
 
-    a - nuostl::Fraction(1, 6); // a becomes 4/6 -> reduced to 2/3 by gcd
+    a - nuostl::Fraction(1, 6);         /* a becomes 4/6 -> reduced to 2/3 by gcd */
     assert(a.GetUp() == 2);
     assert(a.GetDown() == 3);
 
-    a * nuostl::Fraction(3, 2); // 2/3 * 3/2 = 1/1
+    a * nuostl::Fraction(3, 2);         /* 2/3 * 3/2 = 1/1 */
     assert(a.GetUp() == 1);
     assert(a.GetDown() == 1);
 
-    a / nuostl::Fraction(-2, 5); // 1 / (-2/5) = -5/2, denominator normalized to positive
+    a / nuostl::Fraction(-2, 5);        /* 1 / (-2/5) = -5/2, denominator normalized to positive */
     assert(a.GetUp() == -5);
     assert(a.GetDown() == 2);
 }
@@ -148,7 +149,7 @@ Example:
 ```cpp
 #include <assert.h>
 
-#include "extra/fraction.hpp"
+#include "extra/nuo_fraction.hpp"
 
 void fraction_assignment_example()
 {
@@ -175,15 +176,15 @@ That means fractions with the same mathematical value but different stored forms
 ```cpp
 #include <assert.h>
 
-#include "extra/fraction.hpp"
+#include "extra/nuo_fraction.hpp"
 
 void fraction_equality_note()
 {
     nuostl::Fraction a(1, 2);
     nuostl::Fraction b(2, 4);
 
-    // a and b represent the same mathematical value,
-    // but the current == checks stored form (up_, down_)
+    /* a and b represent the same mathematical value, */
+    /* but the current == checks stored form (up_, down_) */
     assert(a != b);
 }
 ```
@@ -193,7 +194,7 @@ void fraction_equality_note()
 ```cpp
 #include <assert.h>
 
-#include "extra/fraction.hpp"
+#include "extra/nuo_fraction.hpp"
 
 void fraction_comparison_examples()
 {
@@ -206,7 +207,7 @@ void fraction_comparison_examples()
 
     nuostl::Fraction n1(-1, 4);
     nuostl::Fraction n2(-1, 2);
-    assert(n1 > n2); // -0.25 > -0.5
+    assert(n1 > n2);                    /* -0.25 > -0.5 */
 }
 ```
 
@@ -227,7 +228,7 @@ Example:
 #include <assert.h>
 #include <stdexcept>
 
-#include "extra/fraction.hpp"
+#include "extra/nuo_fraction.hpp"
 
 void fraction_setter_examples()
 {
@@ -264,7 +265,7 @@ Example:
 #include <assert.h>
 #include <cmath>
 
-#include "extra/fraction.hpp"
+#include "extra/nuo_fraction.hpp"
 
 void fraction_getter_examples()
 {
@@ -285,12 +286,12 @@ User-visible behavior:
 ```cpp
 #include <assert.h>
 
-#include "extra/fraction.hpp"
+#include "extra/nuo_fraction.hpp"
 
 void fraction_normalize_behavior()
 {
     nuostl::Fraction f(3, -5);
-    // Normalize() runs in the constructor
+    /* Normalize() runs in the constructor */
     assert(f.GetUp() == -3);
     assert(f.GetDown() == 5);
 }
@@ -303,11 +304,11 @@ void fraction_normalize_behavior()
 Example:
 
 ```cpp
-#include "extra/fraction.hpp"
+#include "extra/nuo_fraction.hpp"
 
 void fraction_output_example()
 {
     nuostl::Fraction f(1, 2);
-    std::cout << f; // prints "1 / 2"
+    std::cout << f;                     /* prints "1 / 2" */
 }
 ```

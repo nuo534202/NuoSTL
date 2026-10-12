@@ -16,3 +16,4 @@ This directory contains user-facing API documentation for NuoSTL.
 ## Extra Components
 
 - [Fraction](./extra/fraction.md): A class representing mathematical fractions with numerator and denominator, supporting arithmetic operations and normalization.
+- [BigInteger](./extra/big_integer.md): An arbitrary precision signed integer with exact arithmetic, decimal text parsing and printing, and no fixed range limit.
