@@ -129,7 +129,7 @@
 ## 2. Extra Components (TBD)
 
 - [x] BigInteger Class – Arbitrary precision integer type ([API](api/extra/big_integer.md))
-- [ ] Complex Number Class – Similar to `std::complex` but extended
+- [x] Complex Number Class – Similar to `std::complex` but extended ([API](api/extra/complex.md))
 - [x] Fraction Class – Rational number representation ([API](api/extra/fraction.md))
 - [ ] Matrix Class – Linear algebra support
 - [ ] Polynomial Class – Symbolic polynomial arithmetic

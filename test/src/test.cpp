@@ -46,6 +46,7 @@ int main()
     /* Extra */
     test::TestNuoPoolAllocator::TestSuite();
     test::TestNuoBigInteger::TestSuite();
+    test::TestNuoComplex::TestSuite();
     test::TestFraction::test_fraction();
     return 0;
 }
