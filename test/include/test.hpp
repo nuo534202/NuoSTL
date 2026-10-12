@@ -36,4 +36,6 @@
 #include "core/algorithms/test_nuo_set_operations.hpp"
 
 /* 2. Extra Components */
+#include "utils/test_nuo_pool_allocator.hpp"
+
 #include "extra/test_nuo_fraction.hpp"

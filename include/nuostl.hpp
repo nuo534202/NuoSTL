@@ -41,6 +41,8 @@
 
 /* 3. Utils */
 #include "utils/nuo_allocator.hpp"
+#include "utils/nuo_block_pool.hpp"
+#include "utils/nuo_pool_allocator.hpp"
 #include "utils/nuo_construct.hpp"
 #include "utils/nuo_destroy.hpp"
 #include "utils/nuo_exceptdef.hpp"

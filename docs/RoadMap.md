@@ -116,7 +116,8 @@
 ### Allocators
 
 - [x] Default Allocator – Similar to `std::allocator`  
-- [ ] Custom Memory Pool Allocator (TBD)
+- [x] NuoBlockPool – Fixed-size block pool used by `NuoPoolAllocator`
+- [x] NuoPoolAllocator – Allocator that serves single objects from a memory pool
 
 ## 2. Extra Components (TBD)
 
