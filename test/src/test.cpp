@@ -31,6 +31,7 @@ int main()
     test::TestNuoQueue::test_nuo_queue();
     test::TestNuoStack::test_nuo_stack();
     test::Test_Nuo_Vector::test_nuo_vector();
+    test::TestNuoVectorBool::TestSuite();
     test::TestNuoPriorityQueue::TestNuoPriorityQueueSuite();
     test::TestNuoStringView::test_nuo_string_view();
     

@@ -1820,3 +1820,7 @@ nuo_vector(std::from_range_t, R&&, Allocator = Allocator())
 #endif
 
 } /* namespace nuostl */
+
+/* The bool specialization lives in its own header and is pulled in here so
+   that nuo_vector<bool> always resolves to the specialization. */
+#include "core/seq_cont/nuo_vector_bool.hpp"

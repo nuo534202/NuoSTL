@@ -25,7 +25,7 @@
 - [x] NuoStringView – Similar to `std::string_view`
 - [x] NuoVector – Similar to `std::vector`
   - TODO: replace `to_string` with `nuo_to_string`, refactor
-- [ ] NuoVectorBool – Similar to `std::vector<bool>`
+- [x] NuoVectorBool – Similar to `std::vector<bool>`
 
 ### Associative Containers
 

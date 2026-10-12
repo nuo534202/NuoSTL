@@ -25,6 +25,7 @@
 #include "core/seq_cont/nuo_stack.hpp"
 #include "core/seq_cont/nuo_string_view.hpp"
 #include "core/seq_cont/nuo_vector.hpp"
+#include "core/seq_cont/nuo_vector_bool.hpp"
 
 /* Algorithms */
 #include "core/algorithms/nuo_max.hpp"
