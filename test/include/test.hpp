@@ -32,6 +32,7 @@
 #include "core/algorithms/test_nuo_max.hpp"
 #include "core/algorithms/test_nuo_min.hpp"
 #include "core/algorithms/test_nuo_algorithm.hpp"
+#include "core/algorithms/test_nuo_sequence_operations.hpp"
 
 /* 2. Extra Components */
 #include "extra/test_nuo_fraction.hpp"

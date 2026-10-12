@@ -49,19 +49,55 @@
 
 ### Algorithms (TBD)
 
-- [ ] NuoAccumulate – Similar to `std::accumulate`
+- [x] NuoAccumulate – Similar to `std::accumulate`
+- [x] NuoAdjacentFind – Similar to `std::adjacent_find`
+- [x] NuoAllOf – Similar to `std::all_of`
+- [x] NuoAnyOf – Similar to `std::any_of`
 - [x] NuoBinarySearch – Similar to `std::binary_search`
   - [x] NuoLowerBound – Similar to `std::lower_bound`
   - [x] NuoUpperBound – Similar to `std::upper_bound`
   - [x] NuoEqualRange – Similar to `std::equal_range`
-- [ ] NuoCopy – Similar to `std::copy`
-- [ ] NuoFind – Similar to `std::find`
-- [ ] NuoForEach – Similar to `std::for_each`
+- [x] NuoCopy – Similar to `std::copy`
+- [x] NuoCount – Similar to `std::count`
+- [x] NuoCountIf – Similar to `std::count_if`
+- [x] NuoFind – Similar to `std::find`
+- [x] NuoFindEnd – Similar to `std::find_end`
+- [x] NuoFindFirstOf – Similar to `std::find_first_of`
+- [x] NuoFindIf – Similar to `std::find_if`
+- [x] NuoFindIfNot – Similar to `std::find_if_not`
+- [x] NuoForEach – Similar to `std::for_each`
+- [x] NuoGenerate – Similar to `std::generate`
+- [x] NuoGenerateN – Similar to `std::generate_n`
+- [x] NuoIncludes – Similar to `std::includes`
+- [x] NuoIsPermutation – Similar to `std::is_permutation`
 - [x] NuoMax – Similar to `std::max`
-- [ ] NuoMerge – Similar to `std::merge`
+- [x] NuoMaxElement – Similar to `std::max_element`
+- [x] NuoMerge – Similar to `std::merge`
 - [x] NuoMin – Similar to `std::min`
-- [ ] NuoSort – Similar to `std::sort`
-- [ ] NuoTransform – Similar to `std::transform`
+- [x] NuoMinElement – Similar to `std::min_element`
+- [x] NuoNoneOf – Similar to `std::none_of`
+- [x] NuoRemove – Similar to `std::remove`
+- [x] NuoRemoveCopy – Similar to `std::remove_copy`
+- [x] NuoRemoveCopyIf – Similar to `std::remove_copy_if`
+- [x] NuoRemoveIf – Similar to `std::remove_if`
+- [x] NuoReplace – Similar to `std::replace`
+- [x] NuoReplaceCopy – Similar to `std::replace_copy`
+- [x] NuoReplaceCopyIf – Similar to `std::replace_copy_if`
+- [x] NuoReplaceIf – Similar to `std::replace_if`
+- [x] NuoReverse – Similar to `std::reverse`
+- [x] NuoReverseCopy – Similar to `std::reverse_copy`
+- [x] NuoSearch – Similar to `std::search`
+- [x] NuoSearchN – Similar to `std::search_n`
+- [x] NuoSort – Similar to `std::sort`
+- [x] NuoTransform – Similar to `std::transform`
+- [x] NuoUnique – Similar to `std::unique`
+- [x] NuoUniqueCopy – Similar to `std::unique_copy`
+- [ ] NuoNextPermutation – Similar to `std::next_permutation`
+- [ ] NuoPrevPermutation – Similar to `std::prev_permutation`
+- [ ] NuoRandomShuffle – Similar to `std::shuffle`
+- [ ] NuoRotate – Similar to `std::rotate`
+  - [ ] NuoRotateCopy – Similar to `std::rotate_copy`
+- [ ] Set Operations (TBD)
 
 ### Function Objects (Functors)
 
