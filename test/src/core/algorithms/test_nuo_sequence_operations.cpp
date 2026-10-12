@@ -6,6 +6,8 @@
 #include <cstddef>
 #include <functional>
 #include <iterator>
+#include <random>
+#include <set>
 #include <vector>
 
 #include "nuostl.hpp"
@@ -258,6 +260,144 @@ void CheckMutation(const std::vector<int>& values)
   assert(replaced_copy_if == replaced_copy_if_expected);
 }
 
+void CheckRotation(const std::vector<int>& values)
+{
+  const std::ptrdiff_t size = static_cast<std::ptrdiff_t>(values.size());
+  for (std::ptrdiff_t middle = 0; middle <= size; ++middle)
+  {
+    std::vector<int> rotated(values);
+    std::vector<int> expected(values);
+    const auto rotated_return = nuostl::NuoRotate(
+      rotated.begin(), rotated.begin() + middle, rotated.end());
+    const auto expected_return = std::rotate(
+      expected.begin(), expected.begin() + middle, expected.end());
+    assert(rotated == expected);
+    assert(Offset(rotated, rotated_return) ==
+           Offset(expected, expected_return));
+
+    std::vector<int> copied(values.size() + 1, -1);
+    std::vector<int> copied_expected(values.size() + 1, -1);
+    const auto copied_return = nuostl::NuoRotateCopy(
+      values.begin(), values.begin() + middle, values.end(), copied.begin());
+    std::rotate_copy(values.begin(), values.begin() + middle, values.end(),
+                     copied_expected.begin());
+    assert(copied_return == copied.begin() + size);
+    assert(copied == copied_expected);
+  }
+}
+
+void CheckPermutation(const std::vector<int>& values)
+{
+  std::vector<int> next(values);
+  std::vector<int> next_expected(values);
+  assert(nuostl::NuoNextPermutation(next.begin(), next.end()) ==
+         std::next_permutation(next_expected.begin(), next_expected.end()));
+  assert(next == next_expected);
+
+  std::vector<int> previous(values);
+  std::vector<int> previous_expected(values);
+  assert(nuostl::NuoPrevPermutation(previous.begin(), previous.end()) ==
+         std::prev_permutation(previous_expected.begin(),
+                               previous_expected.end()));
+  assert(previous == previous_expected);
+
+  std::vector<int> next_greater(values);
+  std::vector<int> next_greater_expected(values);
+  assert(nuostl::NuoNextPermutation(next_greater.begin(), next_greater.end(),
+                                    std::greater<>()) ==
+         std::next_permutation(next_greater_expected.begin(),
+                               next_greater_expected.end(), std::greater<>()));
+  assert(next_greater == next_greater_expected);
+
+  std::vector<int> previous_greater(values);
+  std::vector<int> previous_greater_expected(values);
+  assert(nuostl::NuoPrevPermutation(previous_greater.begin(),
+                                    previous_greater.end(),
+                                    std::greater<>()) ==
+         std::prev_permutation(previous_greater_expected.begin(),
+                               previous_greater_expected.end(),
+                               std::greater<>()));
+  assert(previous_greater == previous_greater_expected);
+}
+
+void CheckPermutationCycle(int size)
+{
+  std::vector<int> ordered(static_cast<std::size_t>(size));
+  for (int index = 0; index < size; ++index)
+  {
+    ordered[static_cast<std::size_t>(index)] = index;
+  }
+
+  /* The standard library supplies the number of distinct permutations. */
+  std::size_t expected_count = 0;
+  std::vector<int> expected(ordered);
+  do
+  {
+    ++expected_count;
+  } while (std::next_permutation(expected.begin(), expected.end()));
+
+  /* Walking forward from the first permutation returns to the first one. */
+  std::vector<int> ascending(ordered);
+  std::size_t ascending_count = 0;
+  do
+  {
+    ++ascending_count;
+  } while (nuostl::NuoNextPermutation(ascending.begin(), ascending.end()));
+  assert(ascending_count == expected_count);
+  assert(ascending == ordered);
+
+  /* Walking backward from the last permutation returns to the last one. */
+  std::vector<int> descending(ordered);
+  nuostl::NuoReverse(descending.begin(), descending.end());
+  std::vector<int> current(descending);
+  std::size_t descending_count = 0;
+  do
+  {
+    ++descending_count;
+  } while (nuostl::NuoPrevPermutation(current.begin(), current.end()));
+  assert(descending_count == expected_count);
+  assert(current == descending);
+}
+
+void CheckShuffle()
+{
+  const std::vector<int> values = {0, 1, 2, 3, 4, 5, 6, 7};
+
+  std::mt19937 generator(1234);
+  std::vector<int> shuffled(values);
+  nuostl::NuoShuffle(shuffled.begin(), shuffled.end(), generator);
+  std::vector<int> sorted(shuffled);
+  std::sort(sorted.begin(), sorted.end());
+  assert(sorted == values);
+
+  std::mt19937 repeated_generator(1234);
+  std::vector<int> repeated(values);
+  nuostl::NuoShuffle(repeated.begin(), repeated.end(), repeated_generator);
+  assert(repeated == shuffled);
+
+  std::set<std::vector<int>> arrangements;
+  for (unsigned int seed = 0; seed < 64; ++seed)
+  {
+    std::mt19937 seed_generator(seed);
+    std::vector<int> candidate(values);
+    nuostl::NuoShuffle(candidate.begin(), candidate.end(), seed_generator);
+    std::vector<int> candidate_sorted(candidate);
+    std::sort(candidate_sorted.begin(), candidate_sorted.end());
+    assert(candidate_sorted == values);
+    arrangements.insert(candidate);
+  }
+  assert(arrangements.size() > 1);
+
+  std::vector<int> empty;
+  std::mt19937 empty_generator(9);
+  nuostl::NuoShuffle(empty.begin(), empty.end(), empty_generator);
+  assert(empty.empty());
+
+  std::vector<int> single = {42};
+  nuostl::NuoShuffle(single.begin(), single.end(), empty_generator);
+  assert(single.size() == 1 && single[0] == 42);
+}
+
 void CheckSetRelations(const std::vector<int>& left,
                        const std::vector<int>& right)
 {
@@ -318,7 +458,14 @@ void TestNuoSequenceOperations::TestSuite()
   {
     CheckInspection(values);
     CheckMutation(values);
+    CheckRotation(values);
+    CheckPermutation(values);
   }
+
+  CheckPermutationCycle(1);
+  CheckPermutationCycle(2);
+  CheckPermutationCycle(5);
+  CheckShuffle();
 
   for (const std::vector<int>& left : sequences)
   {

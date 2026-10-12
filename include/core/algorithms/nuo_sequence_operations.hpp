@@ -2,6 +2,7 @@
 
 #include <functional>
 #include <iterator>
+#include <random>
 #include <utility>
 
 namespace nuostl
@@ -685,6 +686,194 @@ OutputIterator NuoRemoveCopyIf(InputIterator first, InputIterator last,
     }
   }
   return output;
+}
+
+/* cppreference declaration:
+   template< class ForwardIt >
+   ForwardIt rotate( ForwardIt first, ForwardIt middle, ForwardIt last );
+   https://en.cppreference.com/w/cpp/algorithm/rotate.html */
+template <typename ForwardIterator>
+ForwardIterator NuoRotate(ForwardIterator first, ForwardIterator middle,
+                          ForwardIterator last)
+{
+  if (first == middle)
+  {
+    return last;
+  }
+  if (middle == last)
+  {
+    return first;
+  }
+  ForwardIterator write = first;
+  ForwardIterator next_read = first;
+  ForwardIterator result = last;
+  bool outermost = true;
+  for (;;)
+  {
+    for (ForwardIterator read = middle; read != last; ++read, ++write)
+    {
+      if (write == next_read)
+      {
+        next_read = read;
+      }
+      using std::swap;
+      swap(*write, *read);
+    }
+    if (outermost)
+    {
+      /* The first swap run ends where the old first element lands. */
+      result = write;
+      outermost = false;
+    }
+    if (write == next_read || next_read == last)
+    {
+      break;
+    }
+    middle = next_read;
+    next_read = write;
+  }
+  return result;
+}
+
+/* cppreference declaration:
+   template< class ForwardIt, class OutputIt >
+   OutputIt rotate_copy( ForwardIt first, ForwardIt middle, ForwardIt last,
+                         OutputIt d_first );
+   https://en.cppreference.com/w/cpp/algorithm/rotate_copy.html */
+template <typename ForwardIterator, typename OutputIterator>
+OutputIterator NuoRotateCopy(ForwardIterator first, ForwardIterator middle,
+                             ForwardIterator last, OutputIterator output)
+{
+  for (ForwardIterator current = middle; current != last; ++current)
+  {
+    *output = *current;
+    ++output;
+  }
+  for (ForwardIterator current = first; current != middle; ++current)
+  {
+    *output = *current;
+    ++output;
+  }
+  return output;
+}
+
+/* cppreference declaration:
+   template< class BidirIt, class Compare >
+   bool next_permutation( BidirIt first, BidirIt last, Compare comp );
+   https://en.cppreference.com/w/cpp/algorithm/next_permutation.html */
+template <typename BidirectionalIterator, typename Compare>
+bool NuoNextPermutation(BidirectionalIterator first,
+                        BidirectionalIterator last,
+                        Compare compare)
+{
+  if (first == last)
+  {
+    return false;
+  }
+  BidirectionalIterator pivot = last;
+  if (first == --pivot)
+  {
+    return false;
+  }
+  for (;;)
+  {
+    BidirectionalIterator suffix = pivot;
+    --pivot;
+    if (compare(*pivot, *suffix))
+    {
+      BidirectionalIterator successor = last;
+      while (!compare(*pivot, *--successor))
+      {
+      }
+      using std::swap;
+      swap(*pivot, *successor);
+      NuoReverse(suffix, last);
+      return true;
+    }
+    if (pivot == first)
+    {
+      NuoReverse(first, last);
+      return false;
+    }
+  }
+}
+
+template <typename BidirectionalIterator>
+bool NuoNextPermutation(BidirectionalIterator first,
+                        BidirectionalIterator last)
+{
+  return NuoNextPermutation(first, last, std::less<>());
+}
+
+/* cppreference declaration:
+   template< class BidirIt, class Compare >
+   bool prev_permutation( BidirIt first, BidirIt last, Compare comp );
+   https://en.cppreference.com/w/cpp/algorithm/prev_permutation.html */
+template <typename BidirectionalIterator, typename Compare>
+bool NuoPrevPermutation(BidirectionalIterator first,
+                        BidirectionalIterator last,
+                        Compare compare)
+{
+  if (first == last)
+  {
+    return false;
+  }
+  BidirectionalIterator pivot = last;
+  if (first == --pivot)
+  {
+    return false;
+  }
+  for (;;)
+  {
+    BidirectionalIterator suffix = pivot;
+    --pivot;
+    if (compare(*suffix, *pivot))
+    {
+      BidirectionalIterator successor = last;
+      while (!compare(*--successor, *pivot))
+      {
+      }
+      using std::swap;
+      swap(*pivot, *successor);
+      NuoReverse(suffix, last);
+      return true;
+    }
+    if (pivot == first)
+    {
+      NuoReverse(first, last);
+      return false;
+    }
+  }
+}
+
+template <typename BidirectionalIterator>
+bool NuoPrevPermutation(BidirectionalIterator first,
+                        BidirectionalIterator last)
+{
+  return NuoPrevPermutation(first, last, std::less<>());
+}
+
+/* cppreference declaration:
+   template< class RandomIt, class URBG >
+   void shuffle( RandomIt first, RandomIt last, URBG&& g );
+   https://en.cppreference.com/w/cpp/algorithm/random_shuffle.html */
+template <typename RandomIterator, typename URBG>
+void NuoShuffle(RandomIterator first, RandomIterator last, URBG&& generator)
+{
+  using Difference =
+    typename std::iterator_traits<RandomIterator>::difference_type;
+  using Distribution = std::uniform_int_distribution<Difference>;
+  Distribution distribution;
+  for (Difference index = (last - first) - 1; index > 0; --index)
+  {
+    const Difference chosen = distribution(
+      generator, typename Distribution::param_type(0, index));
+    if (chosen != index)
+    {
+      using std::swap;
+      swap(first[index], first[chosen]);
+    }
+  }
 }
 
 } /* namespace nuostl */

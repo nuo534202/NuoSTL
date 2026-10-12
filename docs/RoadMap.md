@@ -92,12 +92,15 @@
 - [x] NuoTransform – Similar to `std::transform`
 - [x] NuoUnique – Similar to `std::unique`
 - [x] NuoUniqueCopy – Similar to `std::unique_copy`
-- [ ] NuoNextPermutation – Similar to `std::next_permutation`
-- [ ] NuoPrevPermutation – Similar to `std::prev_permutation`
-- [ ] NuoRandomShuffle – Similar to `std::shuffle`
-- [ ] NuoRotate – Similar to `std::rotate`
-  - [ ] NuoRotateCopy – Similar to `std::rotate_copy`
-- [ ] Set Operations (TBD)
+- [x] NuoNextPermutation – Similar to `std::next_permutation`
+- [x] NuoPrevPermutation – Similar to `std::prev_permutation`
+- [x] NuoRotate – Similar to `std::rotate`
+  - [x] NuoRotateCopy – Similar to `std::rotate_copy`
+- [x] NuoSetDifference – Similar to `std::set_difference`
+- [x] NuoSetIntersection – Similar to `std::set_intersection`
+- [x] NuoSetSymmetricDifference – Similar to `std::set_symmetric_difference`
+- [x] NuoSetUnion – Similar to `std::set_union`
+- [x] NuoShuffle – Similar to `std::shuffle`
 
 ### Function Objects (Functors)
 

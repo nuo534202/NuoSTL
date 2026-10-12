@@ -34,6 +34,7 @@
 #include "core/algorithms/nuo_sort.hpp"
 #include "core/algorithms/nuo_sort_operation.hpp"
 #include "core/algorithms/nuo_sequence_operations.hpp"
+#include "core/algorithms/nuo_set_operations.hpp"
 
 /* 2. Extra Components */
 #include "extra/nuo_fraction.hpp"

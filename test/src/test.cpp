@@ -39,6 +39,7 @@ int main()
     test::Test_Nuo_Min::test_nuo_min();
     test::TestNuoAlgorithm::TestNuoAlgorithmSuite();
     test::TestNuoSequenceOperations::TestSuite();
+    test::TestNuoSetOperations::TestSuite();
 
     /* Extra */
     test::TestFraction::test_fraction();
