@@ -9,7 +9,7 @@
 - [x] NuoPair – Similar to `std::pair`
 - [x] NuoString – Similar to `std::string`
 - [x] NuoTuple – Similar to `std::tuple`
-- [ ] NuoVariant – Similar to `std::variant`
+- [x] NuoVariant – Similar to `std::variant`
 
 ### Sequence Containers
 
