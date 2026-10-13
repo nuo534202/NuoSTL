@@ -18,3 +18,4 @@ This directory contains user-facing API documentation for NuoSTL.
 - [Fraction](./extra/fraction.md): A class representing mathematical fractions with numerator and denominator, supporting arithmetic operations and normalization.
 - [BigInteger](./extra/big_integer.md): An arbitrary precision signed integer with exact arithmetic, decimal text parsing and printing, and no fixed range limit.
 - [Complex](./extra/complex.md): A complex number template with the arithmetic operators and mathematical functions of `std::complex`, plus near equality and exact integer powers.
+- [Matrix](./extra/matrix.md): A dense matrix template with element access, arithmetic, transpose, trace, determinant, inverse and integer powers.

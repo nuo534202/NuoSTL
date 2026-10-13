@@ -131,5 +131,5 @@
 - [x] BigInteger Class – Arbitrary precision integer type ([API](api/extra/big_integer.md))
 - [x] Complex Number Class – Similar to `std::complex` but extended ([API](api/extra/complex.md))
 - [x] Fraction Class – Rational number representation ([API](api/extra/fraction.md))
-- [ ] Matrix Class – Linear algebra support
+- [x] Matrix Class – Linear algebra support ([API](api/extra/matrix.md))
 - [ ] Polynomial Class – Symbolic polynomial arithmetic
