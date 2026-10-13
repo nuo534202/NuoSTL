@@ -132,4 +132,4 @@
 - [x] Complex Number Class – Similar to `std::complex` but extended ([API](api/extra/complex.md))
 - [x] Fraction Class – Rational number representation ([API](api/extra/fraction.md))
 - [x] Matrix Class – Linear algebra support ([API](api/extra/matrix.md))
-- [ ] Polynomial Class – Symbolic polynomial arithmetic
+- [x] Polynomial Class – Symbolic polynomial arithmetic ([API](api/extra/polynomial.md))

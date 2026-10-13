@@ -43,6 +43,7 @@
 #include "extra/nuo_big_integer.hpp"
 #include "extra/nuo_complex.hpp"
 #include "extra/nuo_matrix.hpp"
+#include "extra/nuo_polynomial.hpp"
 
 /* 3. Utils */
 #include "utils/nuo_allocator.hpp"

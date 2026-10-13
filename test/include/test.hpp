@@ -43,4 +43,5 @@
 #include "extra/test_nuo_big_integer.hpp"
 #include "extra/test_nuo_complex.hpp"
 #include "extra/test_nuo_matrix.hpp"
+#include "extra/test_nuo_polynomial.hpp"
 #include "extra/test_nuo_fraction.hpp"

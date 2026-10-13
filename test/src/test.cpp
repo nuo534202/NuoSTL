@@ -48,6 +48,7 @@ int main()
     test::TestNuoBigInteger::TestSuite();
     test::TestNuoComplex::TestSuite();
     test::TestNuoMatrix::TestSuite();
+    test::TestNuoPolynomial::TestSuite();
     test::TestFraction::test_fraction();
     return 0;
 }
