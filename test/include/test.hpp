@@ -42,6 +42,7 @@
 #include "core/memory/test_nuo_unique_ptr.hpp"
 #include "core/memory/test_nuo_shared_ptr.hpp"
 #include "core/memory/test_nuo_memory.hpp"
+#include "core/memory/test_nuo_allocator_traits.hpp"
 
 /* Functional */
 #include "core/functional/test_nuo_function.hpp"

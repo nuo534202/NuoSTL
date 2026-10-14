@@ -44,6 +44,9 @@
 #include "core/memory/nuo_shared_ptr.hpp"
 #include "core/memory/nuo_addressof.hpp"
 #include "core/memory/nuo_uninitialized.hpp"
+#include "core/memory/nuo_pointer_traits.hpp"
+#include "core/memory/nuo_allocator_traits.hpp"
+#include "core/memory/nuo_owner_less.hpp"
 
 /* Functional */
 #include "core/functional/nuo_function.hpp"

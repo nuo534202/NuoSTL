@@ -130,6 +130,9 @@
 - [x] Default Allocator – Similar to `std::allocator`  
 - [x] NuoBlockPool – Fixed-size block pool used by `NuoPoolAllocator`
 - [x] NuoPoolAllocator – Allocator that serves single objects from a memory pool
+- [x] NuoPointerTraits – Similar to `std::pointer_traits`
+- [x] NuoToAddress – Similar to `std::to_address`
+- [x] NuoAllocatorTraits – Similar to `std::allocator_traits`
 
 ### Memory Utilities
 
@@ -153,6 +156,7 @@
 - [x] Pointer Cast Helpers – Similar to `std::static_pointer_cast`,
   `std::dynamic_pointer_cast`, `std::const_pointer_cast` and
   `std::reinterpret_pointer_cast`
+- [x] NuoOwnerLess – Similar to `std::owner_less`
 
 ## 2. Extra Components
 

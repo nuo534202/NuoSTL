@@ -48,6 +48,7 @@ int main()
     test::TestNuoUniquePtr::TestSuite();
     test::TestNuoSharedPtr::TestSuite();
     test::TestNuoMemory::TestSuite();
+    test::TestNuoAllocatorTraits::TestSuite();
 
     /* Functional */
     test::TestNuoFunction::TestSuite();
