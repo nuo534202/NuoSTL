@@ -45,6 +45,7 @@ int main()
 
     /* Memory */
     test::TestNuoUniquePtr::TestSuite();
+    test::TestNuoSharedPtr::TestSuite();
 
     /* Extra */
     test::TestNuoPoolAllocator::TestSuite();

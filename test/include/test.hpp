@@ -39,6 +39,7 @@
 
 /* Memory */
 #include "core/memory/test_nuo_unique_ptr.hpp"
+#include "core/memory/test_nuo_shared_ptr.hpp"
 
 /* 2. Extra Components */
 #include "utils/test_nuo_pool_allocator.hpp"

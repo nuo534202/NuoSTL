@@ -40,6 +40,7 @@
 
 /* Memory */
 #include "core/memory/nuo_unique_ptr.hpp"
+#include "core/memory/nuo_shared_ptr.hpp"
 
 /* 2. Extra Components */
 #include "extra/nuo_fraction.hpp"

@@ -131,6 +131,13 @@
 - [x] NuoDefaultDelete – Similar to `std::default_delete`
 - [x] NuoUniquePtr – Similar to `std::unique_ptr`
 - [x] NuoMakeUnique – Similar to `std::make_unique` and `std::make_unique_for_overwrite`
+- [x] NuoSharedPtr – Similar to `std::shared_ptr` (object and array forms)
+- [x] NuoWeakPtr – Similar to `std::weak_ptr` (object and array forms)
+- [x] NuoMakeShared – Similar to `std::make_shared` and `std::make_shared_for_overwrite`
+- [x] NuoEnableSharedFromThis – Similar to `std::enable_shared_from_this`
+- [x] Pointer Cast Helpers – Similar to `std::static_pointer_cast`,
+  `std::dynamic_pointer_cast`, `std::const_pointer_cast` and
+  `std::reinterpret_pointer_cast`
 
 ## 2. Extra Components
 
