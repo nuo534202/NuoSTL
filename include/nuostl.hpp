@@ -38,6 +38,9 @@
 #include "core/algorithms/nuo_set_operations.hpp"
 #include "core/algorithms/nuo_numeric.hpp"
 
+/* Memory */
+#include "core/memory/nuo_unique_ptr.hpp"
+
 /* 2. Extra Components */
 #include "extra/nuo_fraction.hpp"
 #include "extra/nuo_big_integer.hpp"

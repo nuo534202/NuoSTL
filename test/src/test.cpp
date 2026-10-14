@@ -43,6 +43,9 @@ int main()
     test::TestNuoSetOperations::TestSuite();
     test::TestNuoNumeric::TestSuite();
 
+    /* Memory */
+    test::TestNuoUniquePtr::TestSuite();
+
     /* Extra */
     test::TestNuoPoolAllocator::TestSuite();
     test::TestNuoBigInteger::TestSuite();

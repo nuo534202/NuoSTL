@@ -2,7 +2,7 @@
 
 ## 1. C++ STL Core Components
 
-### Data Types (TBD)
+### Data Types
 
 - [x] NuoAny – Similar to `std::any`
 - [x] NuoOptional – Similar to `std::optional`
@@ -46,7 +46,7 @@
 - [x] Output Iterator
 - [x] Random Access Iterator
 
-### Algorithms (TBD)
+### Algorithms
 
 - [x] NuoAccumulate – Similar to `std::accumulate`
 - [x] NuoAdjacentFind – Similar to `std::adjacent_find`
@@ -126,7 +126,13 @@
 - [x] NuoBlockPool – Fixed-size block pool used by `NuoPoolAllocator`
 - [x] NuoPoolAllocator – Allocator that serves single objects from a memory pool
 
-## 2. Extra Components (TBD)
+### Smart Pointers
+
+- [x] NuoDefaultDelete – Similar to `std::default_delete`
+- [x] NuoUniquePtr – Similar to `std::unique_ptr`
+- [x] NuoMakeUnique – Similar to `std::make_unique` and `std::make_unique_for_overwrite`
+
+## 2. Extra Components
 
 - [x] BigInteger Class – Arbitrary precision integer type ([API](api/extra/big_integer.md))
 - [x] Complex Number Class – Similar to `std::complex` but extended ([API](api/extra/complex.md))

@@ -37,6 +37,9 @@
 #include "core/algorithms/test_nuo_set_operations.hpp"
 #include "core/algorithms/test_nuo_numeric.hpp"
 
+/* Memory */
+#include "core/memory/test_nuo_unique_ptr.hpp"
+
 /* 2. Extra Components */
 #include "utils/test_nuo_pool_allocator.hpp"
 
