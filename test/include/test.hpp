@@ -45,6 +45,7 @@
 #include "core/memory/test_nuo_memory.hpp"
 #include "core/memory/test_nuo_allocator_traits.hpp"
 #include "core/memory/test_nuo_memory_utilities.hpp"
+#include "core/memory/test_nuo_uses_allocator_construction.hpp"
 
 /* Functional */
 #include "core/functional/test_nuo_function.hpp"

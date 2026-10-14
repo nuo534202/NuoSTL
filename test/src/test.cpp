@@ -51,6 +51,7 @@ int main()
     test::TestNuoMemory::TestSuite();
     test::TestNuoAllocatorTraits::TestSuite();
     test::TestNuoMemoryUtilities::TestSuite();
+    test::TestNuoUsesAllocatorConstruction::TestSuite();
 
     /* Functional */
     test::TestNuoFunction::TestSuite();

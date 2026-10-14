@@ -52,6 +52,7 @@
 #include "core/memory/nuo_launder.hpp"
 #include "core/memory/nuo_assume_aligned.hpp"
 #include "core/memory/nuo_uses_allocator.hpp"
+#include "core/memory/nuo_uses_allocator_construction.hpp"
 
 /* Functional */
 #include "core/functional/nuo_function.hpp"

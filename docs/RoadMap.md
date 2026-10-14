@@ -149,6 +149,10 @@
 - [x] NuoAssumeAligned – Similar to `std::assume_aligned`
 - [x] NuoUsesAllocator – Similar to `std::uses_allocator`
 - [x] NuoAllocatorArg – Similar to `std::allocator_arg_t` and `std::allocator_arg`
+- [x] NuoUsesAllocatorConstruction – Similar to `std::uses_allocator_construction_args`
+- [x] NuoMakeObjUsingAllocator – Similar to `std::make_obj_using_allocator`
+- [x] NuoUninitializedConstructUsingAllocator – Similar to
+  `std::uninitialized_construct_using_allocator`
 
 ### Smart Pointers
 
