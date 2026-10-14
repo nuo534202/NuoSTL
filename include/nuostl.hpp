@@ -48,6 +48,10 @@
 #include "core/memory/nuo_pointer_traits.hpp"
 #include "core/memory/nuo_allocator_traits.hpp"
 #include "core/memory/nuo_owner_less.hpp"
+#include "core/memory/nuo_align.hpp"
+#include "core/memory/nuo_launder.hpp"
+#include "core/memory/nuo_assume_aligned.hpp"
+#include "core/memory/nuo_uses_allocator.hpp"
 
 /* Functional */
 #include "core/functional/nuo_function.hpp"

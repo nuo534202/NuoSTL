@@ -144,6 +144,11 @@
   `std::uninitialized_fill`, `std::uninitialized_move`,
   `std::uninitialized_default_construct` and
   `std::uninitialized_value_construct`
+- [x] NuoAlign / NuoAlignValT – Similar to `std::align` and `std::align_val_t`
+- [x] NuoLaunder – Similar to `std::launder`
+- [x] NuoAssumeAligned – Similar to `std::assume_aligned`
+- [x] NuoUsesAllocator – Similar to `std::uses_allocator`
+- [x] NuoAllocatorArg – Similar to `std::allocator_arg_t` and `std::allocator_arg`
 
 ### Smart Pointers
 
