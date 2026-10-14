@@ -8,6 +8,7 @@
 #include <type_traits>
 
 #include "core/algorithms/nuo_binary_search.hpp"
+#include "core/memory/nuo_uninitialized.hpp"
 #include "utils/nuo_construct.hpp"
 #include "utils/nuo_destroy.hpp"
 #include "utils/nuo_iterator.hpp"
@@ -198,65 +199,6 @@ OutputIterator NuoMerge(InputIterator1 first1, InputIterator1 last1,
                         OutputIterator output)
 {
   return NuoMerge(first1, last1, first2, last2, output, std::less<>());
-}
-
-template <typename InputIterator, typename OutputIterator>
-OutputIterator NuoUninitializedCopy(InputIterator first, InputIterator last,
-                                    OutputIterator output)
-{
-  OutputIterator current = output;
-  try
-  {
-    for (; first != last; ++first, ++current)
-    {
-      NuoConstruct(&*current, *first);
-    }
-    return current;
-  }
-  catch (...)
-  {
-    std::destroy(output, current);
-    throw;
-  }
-}
-
-template <typename ForwardIterator, typename T>
-void NuoUninitializedFill(ForwardIterator first, ForwardIterator last,
-                          const T& value)
-{
-  ForwardIterator current = first;
-  try
-  {
-    for (; current != last; ++current)
-    {
-      NuoConstruct(&*current, value);
-    }
-  }
-  catch (...)
-  {
-    std::destroy(first, current);
-    throw;
-  }
-}
-
-template <typename ForwardIterator, typename Size, typename T>
-ForwardIterator NuoUninitializedFillN(ForwardIterator first, Size count,
-                                      const T& value)
-{
-  ForwardIterator current = first;
-  try
-  {
-    for (; count > 0; --count, ++current)
-    {
-      NuoConstruct(&*current, value);
-    }
-    return current;
-  }
-  catch (...)
-  {
-    std::destroy(first, current);
-    throw;
-  }
 }
 
 } /* namespace nuostl */

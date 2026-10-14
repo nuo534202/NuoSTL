@@ -131,6 +131,16 @@
 - [x] NuoBlockPool – Fixed-size block pool used by `NuoPoolAllocator`
 - [x] NuoPoolAllocator – Allocator that serves single objects from a memory pool
 
+### Memory Utilities
+
+- [x] NuoAddressof – Similar to `std::addressof`
+- [x] Object Lifetime Helpers – Similar to `std::construct_at`,
+  `std::destroy_at` and `std::destroy_n`
+- [x] Uninitialized Memory Algorithms – Similar to `std::uninitialized_copy`,
+  `std::uninitialized_fill`, `std::uninitialized_move`,
+  `std::uninitialized_default_construct` and
+  `std::uninitialized_value_construct`
+
 ### Smart Pointers
 
 - [x] NuoDefaultDelete – Similar to `std::default_delete`
