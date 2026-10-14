@@ -43,6 +43,9 @@
 #include "core/memory/nuo_unique_ptr.hpp"
 #include "core/memory/nuo_shared_ptr.hpp"
 
+/* Functional */
+#include "core/functional/nuo_function.hpp"
+
 /* 2. Extra Components */
 #include "extra/nuo_fraction.hpp"
 #include "extra/nuo_big_integer.hpp"

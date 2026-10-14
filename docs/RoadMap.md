@@ -121,6 +121,10 @@
 - [x] NuoLess – Similar to `std::less`
 - [x] NuoPlus – Similar to `std::plus`
 
+### Function Wrappers
+
+- [x] NuoFunction – Similar to `std::function`
+
 ### Allocators
 
 - [x] Default Allocator – Similar to `std::allocator`  

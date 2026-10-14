@@ -48,6 +48,9 @@ int main()
     test::TestNuoUniquePtr::TestSuite();
     test::TestNuoSharedPtr::TestSuite();
 
+    /* Functional */
+    test::TestNuoFunction::TestSuite();
+
     /* Extra */
     test::TestNuoPoolAllocator::TestSuite();
     test::TestNuoBigInteger::TestSuite();
