@@ -35,6 +35,7 @@ int main()
     test::TestNuoPriorityQueue::TestNuoPriorityQueueSuite();
     test::TestNuoStringView::test_nuo_string_view();
     test::TestNuoBitset::TestSuite();
+    test::TestNuoSpan::TestSuite();
     
     /* Algorithms */
     test::Test_Nuo_Max::test_nuo_max();

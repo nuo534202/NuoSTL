@@ -27,6 +27,7 @@
 #include "core/seq_cont/nuo_vector.hpp"
 #include "core/seq_cont/nuo_vector_bool.hpp"
 #include "core/seq_cont/nuo_bitset.hpp"
+#include "core/seq_cont/nuo_span.hpp"
 
 /* Algorithms */
 #include "core/algorithms/nuo_max.hpp"
