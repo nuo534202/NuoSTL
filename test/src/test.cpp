@@ -34,6 +34,7 @@ int main()
     test::TestNuoVectorBool::TestSuite();
     test::TestNuoPriorityQueue::TestNuoPriorityQueueSuite();
     test::TestNuoStringView::test_nuo_string_view();
+    test::TestNuoBitset::TestSuite();
     
     /* Algorithms */
     test::Test_Nuo_Max::test_nuo_max();

@@ -28,6 +28,7 @@
 #include "core/seq_cont/test_nuo_vector_bool.hpp"
 #include "core/seq_cont/test_nuo_priority_queue.hpp"
 #include "core/seq_cont/test_nuo_string_view.hpp"
+#include "core/seq_cont/test_nuo_bitset.hpp"
 
 /* Algorithm */
 #include "core/algorithms/test_nuo_max.hpp"

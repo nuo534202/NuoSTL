@@ -25,6 +25,7 @@
 - [x] NuoVector – Similar to `std::vector`
   - TODO: replace `to_string` with `nuo_to_string`, refactor
 - [x] NuoVectorBool – Similar to `std::vector<bool>`
+- [x] NuoBitset – Similar to `std::bitset`
 
 ### Associative Containers
 
