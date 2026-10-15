@@ -74,4 +74,4 @@ The [API reference](docs/api/README.md) covers mathematical extensions with exam
 
 ## License
 
-[MIT LICENSE](LICENSE) — free to use, modify, and distribute under the license terms.
+[MIT LICENSE](LICENSE) — free to use, modify, and distribute under the license terms. Implementation ideas are drawn from the [MyTinySTL](https://github.com/Alinshans/MyTinySTL) project and the [C++ standard library](https://en.cppreference.com/cpp/standard_library).
