@@ -45,6 +45,9 @@ int main()
     test::TestNuoSetOperations::TestSuite();
     test::TestNuoNumeric::TestSuite();
 
+    /* Bit */
+    test::TestNuoBit::TestSuite();
+
     /* Memory */
     test::TestNuoUniquePtr::TestSuite();
     test::TestNuoSharedPtr::TestSuite();

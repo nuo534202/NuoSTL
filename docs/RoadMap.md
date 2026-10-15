@@ -111,6 +111,17 @@
 - [x] NuoIota – Similar to `std::iota`
 - [x] NuoPartialSum – Similar to `std::partial_sum`
 
+### Bit Utilities
+
+- [x] NuoEndian – Similar to `std::endian`
+- [x] NuoBitCast – Similar to `std::bit_cast`
+- [x] NuoByteswap – Similar to `std::byteswap`
+- [x] NuoPopcount / NuoCountlZero / NuoCountrZero / NuoCountlOne /
+  NuoCountrOne – Similar to the corresponding `<bit>` functions
+- [x] NuoHasSingleBit / NuoBitWidth / NuoBitCeil / NuoBitFloor – Similar to
+  the corresponding `<bit>` functions
+- [x] NuoRotl / NuoRotr – Similar to `std::rotl` and `std::rotr`
+
 ### Function Objects (Functors)
 
 - [x] NuoDivides – Similar to `std::divides`

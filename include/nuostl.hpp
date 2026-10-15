@@ -40,6 +40,9 @@
 #include "core/algorithms/nuo_set_operations.hpp"
 #include "core/algorithms/nuo_numeric.hpp"
 
+/* Bit */
+#include "core/bit/nuo_bit.hpp"
+
 /* Memory */
 #include "core/memory/nuo_unique_ptr.hpp"
 #include "core/memory/nuo_shared_ptr.hpp"

@@ -39,6 +39,9 @@
 #include "core/algorithms/test_nuo_set_operations.hpp"
 #include "core/algorithms/test_nuo_numeric.hpp"
 
+/* Bit */
+#include "core/bit/test_nuo_bit.hpp"
+
 /* Memory */
 #include "core/memory/test_nuo_unique_ptr.hpp"
 #include "core/memory/test_nuo_shared_ptr.hpp"
