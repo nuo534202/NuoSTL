@@ -162,6 +162,7 @@
 - [x] NuoSharedPtr – Similar to `std::shared_ptr` (object and array forms)
 - [x] NuoWeakPtr – Similar to `std::weak_ptr` (object and array forms)
 - [x] NuoMakeShared – Similar to `std::make_shared` and `std::make_shared_for_overwrite`
+- [x] NuoAllocateShared – Similar to `std::allocate_shared` (object form)
 - [x] NuoEnableSharedFromThis – Similar to `std::enable_shared_from_this`
 - [x] Pointer Cast Helpers – Similar to `std::static_pointer_cast`,
   `std::dynamic_pointer_cast`, `std::const_pointer_cast` and

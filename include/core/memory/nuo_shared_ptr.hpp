@@ -11,6 +11,7 @@
 #include <utility>
 
 #include "core/memory/nuo_unique_ptr.hpp"
+#include "core/memory/nuo_allocator_traits.hpp"
 
 namespace nuostl
 {
@@ -190,6 +191,63 @@ private:
   alignas(T) unsigned char storage_[sizeof(T)];
 };
 
+/* A control block that allocates its own memory through the allocator that
+   also constructs and destroys the owned object. */
+template <typename T, typename Alloc>
+class NuoAllocatedSharedObjectControl final : public NuoSharedControl
+{
+public:
+  template <typename... Args>
+  explicit NuoAllocatedSharedObjectControl(const Alloc& allocator,
+                                           Args&&... args)
+    : allocator_(allocator)
+  {
+    using ObjectAllocator = typename NuoAllocatorTraits<Alloc>::
+      template rebind_alloc<T>;
+    ObjectAllocator object_allocator(allocator_);
+    NuoAllocatorTraits<ObjectAllocator>::construct(
+      object_allocator, StoragePointer(), std::forward<Args>(args)...);
+  }
+
+  T* Object() noexcept
+  {
+    return std::launder(StoragePointer());
+  }
+
+protected:
+  ~NuoAllocatedSharedObjectControl() override = default;
+
+  void Dispose() noexcept override
+  {
+    using ObjectAllocator = typename NuoAllocatorTraits<Alloc>::
+      template rebind_alloc<T>;
+    ObjectAllocator object_allocator(allocator_);
+    NuoAllocatorTraits<ObjectAllocator>::destroy(object_allocator, Object());
+  }
+
+  void Destroy() noexcept override
+  {
+    using ControlAllocator = typename NuoAllocatorTraits<Alloc>::
+      template rebind_alloc<NuoAllocatedSharedObjectControl>;
+    using ControlPointer =
+      typename NuoAllocatorTraits<ControlAllocator>::pointer;
+    ControlAllocator control_allocator(allocator_);
+    this->~NuoAllocatedSharedObjectControl();
+    NuoAllocatorTraits<ControlAllocator>::deallocate(
+      control_allocator,
+      reinterpret_cast<ControlPointer>(this), 1);
+  }
+
+private:
+  T* StoragePointer() noexcept
+  {
+    return reinterpret_cast<T*>(storage_);
+  }
+
+  alignas(T) unsigned char storage_[sizeof(T)];
+  [[no_unique_address]] Alloc allocator_;
+};
+
 } /* namespace detail */
 
 /* The standard library class template is
@@ -214,6 +272,10 @@ class NuoSharedPtr
     requires (!std::is_array_v<U> && !std::is_void_v<U> &&
               !std::is_reference_v<U> && !std::is_function_v<U>)
   friend NuoSharedPtr<U> NuoMakeShared(Args&&... args);
+
+  template <typename U, typename A, typename... Args>
+  friend NuoSharedPtr<U> NuoAllocateShared(const A& allocator,
+                                           Args&&... args);
 
 public:
   using element_type = T;
@@ -1278,6 +1340,43 @@ NuoSharedPtr<T> NuoMakeSharedForOverwrite(std::size_t size)
 {
   using Element = std::remove_extent_t<T>;
   return NuoSharedPtr<T>(new Element[size]);
+}
+
+/* The standard library declaration is
+   template <typename T, typename Alloc, typename... Args>
+   shared_ptr<T> allocate_shared(const Alloc& alloc, Args&&... args);
+   cppreference.com/w/cpp/memory/shared_ptr/allocate_shared.html
+   This object form allocates the control block and the object together and
+   uses the rebound allocator for construction and destruction. */
+template <typename T, typename Alloc, typename... Args>
+NuoSharedPtr<T> NuoAllocateShared(const Alloc& allocator, Args&&... args)
+{
+  static_assert(!std::is_array_v<T>,
+                "NuoAllocateShared array form is not implemented");
+  static_assert(!std::is_void_v<T> && !std::is_reference_v<T> &&
+                !std::is_function_v<T>,
+                "NuoAllocateShared requires an object type");
+
+  using Control = detail::NuoAllocatedSharedObjectControl<T, Alloc>;
+  using ControlAllocator = typename NuoAllocatorTraits<Alloc>::
+    template rebind_alloc<Control>;
+
+  ControlAllocator control_allocator(allocator);
+  Control* control =
+    NuoAllocatorTraits<ControlAllocator>::allocate(control_allocator, 1);
+  try
+  {
+    ::new (static_cast<void*>(control))
+      Control(allocator, std::forward<Args>(args)...);
+  }
+  catch (...)
+  {
+    NuoAllocatorTraits<ControlAllocator>::deallocate(
+      control_allocator, control, 1);
+    throw;
+  }
+  return NuoSharedPtr<T>(control->Object(), control,
+                         detail::NuoAdoptSharedTag{});
 }
 
 template <typename T, typename U>
