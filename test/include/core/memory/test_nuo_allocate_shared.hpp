@@ -14,6 +14,9 @@ private:
   static void TestThrowingConstruction();
   static void TestEnableSharedFromThis();
   static void TestOtherAllocators();
+  static void TestArrayAllocation();
+  static void TestOverwriteAllocation();
+  static void TestArrayThrowingConstruction();
   static void TestStdParity();
 };
 

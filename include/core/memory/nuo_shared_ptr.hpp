@@ -193,7 +193,7 @@ private:
 
 /* A control block that allocates its own memory through the allocator that
    also constructs and destroys the owned object. */
-template <typename T, typename Alloc>
+template <typename T, typename Alloc, bool Overwrite = false>
 class NuoAllocatedSharedObjectControl final : public NuoSharedControl
 {
 public:
@@ -202,11 +202,20 @@ public:
                                            Args&&... args)
     : allocator_(allocator)
   {
-    using ObjectAllocator = typename NuoAllocatorTraits<Alloc>::
-      template rebind_alloc<T>;
-    ObjectAllocator object_allocator(allocator_);
-    NuoAllocatorTraits<ObjectAllocator>::construct(
-      object_allocator, StoragePointer(), std::forward<Args>(args)...);
+    if constexpr (Overwrite)
+    {
+      static_assert(sizeof...(Args) == 0,
+                    "overwrite construction takes no arguments");
+      ::new (static_cast<void*>(StoragePointer())) T;
+    }
+    else
+    {
+      using ObjectAllocator = typename NuoAllocatorTraits<Alloc>::
+        template rebind_alloc<T>;
+      ObjectAllocator object_allocator(allocator_);
+      NuoAllocatorTraits<ObjectAllocator>::construct(
+        object_allocator, StoragePointer(), std::forward<Args>(args)...);
+    }
   }
 
   T* Object() noexcept
@@ -219,10 +228,17 @@ protected:
 
   void Dispose() noexcept override
   {
-    using ObjectAllocator = typename NuoAllocatorTraits<Alloc>::
-      template rebind_alloc<T>;
-    ObjectAllocator object_allocator(allocator_);
-    NuoAllocatorTraits<ObjectAllocator>::destroy(object_allocator, Object());
+    if constexpr (Overwrite)
+    {
+      NuoDestroyAt(Object());
+    }
+    else
+    {
+      using ObjectAllocator = typename NuoAllocatorTraits<Alloc>::
+        template rebind_alloc<T>;
+      ObjectAllocator object_allocator(allocator_);
+      NuoAllocatorTraits<ObjectAllocator>::destroy(object_allocator, Object());
+    }
   }
 
   void Destroy() noexcept override
@@ -246,6 +262,133 @@ private:
 
   alignas(T) unsigned char storage_[sizeof(T)];
   [[no_unique_address]] Alloc allocator_;
+};
+
+/* A max-aligned storage unit used for the variable size array control block. */
+struct alignas(std::max_align_t) NuoSharedArrayUnit
+{
+  unsigned char byte;
+};
+
+/* The array form allocates the control block and the element array in one
+   allocator allocation. The control block starts at the allocation address
+   and the elements follow at an aligned offset. */
+template <typename T, typename Alloc, bool Overwrite>
+class NuoAllocatedSharedArrayControl final : public NuoSharedControl
+{
+  using Element = std::remove_extent_t<T>;
+
+  static_assert(alignof(Element) <= alignof(std::max_align_t),
+                "over-aligned array elements are not supported");
+
+public:
+  NuoAllocatedSharedArrayControl(const Alloc& allocator, std::size_t size,
+                                 std::size_t units)
+    : allocator_(allocator)
+    , size_(size)
+    , units_(units)
+  {
+    std::size_t built = 0;
+    if constexpr (Overwrite)
+    {
+      try
+      {
+        for (; built < size_; ++built)
+        {
+          ::new (static_cast<void*>(Object() + built)) Element;
+        }
+      }
+      catch (...)
+      {
+        for (std::size_t index = 0; index < built; ++index)
+        {
+          NuoDestroyAt(Object() + index);
+        }
+        throw;
+      }
+    }
+    else
+    {
+      using ObjectAllocator = typename NuoAllocatorTraits<Alloc>::
+        template rebind_alloc<Element>;
+      ObjectAllocator object_allocator(allocator_);
+      try
+      {
+        for (; built < size_; ++built)
+        {
+          NuoAllocatorTraits<ObjectAllocator>::construct(
+            object_allocator, Object() + built);
+        }
+      }
+      catch (...)
+      {
+        for (std::size_t index = 0; index < built; ++index)
+        {
+          NuoAllocatorTraits<ObjectAllocator>::destroy(
+            object_allocator, Object() + index);
+        }
+        throw;
+      }
+    }
+  }
+
+  Element* Object() noexcept
+  {
+    return std::launder(reinterpret_cast<Element*>(
+      reinterpret_cast<unsigned char*>(this) + StorageOffset()));
+  }
+
+  static constexpr std::size_t StorageOffset()
+  {
+    constexpr std::size_t alignment = alignof(std::max_align_t);
+    return ((sizeof(NuoAllocatedSharedArrayControl) + alignment - 1) /
+            alignment) * alignment;
+  }
+
+protected:
+  ~NuoAllocatedSharedArrayControl() override = default;
+
+  void Dispose() noexcept override
+  {
+    if constexpr (Overwrite)
+    {
+      for (std::size_t index = 0; index < size_; ++index)
+      {
+        NuoDestroyAt(Object() + index);
+      }
+    }
+    else
+    {
+      using ObjectAllocator = typename NuoAllocatorTraits<Alloc>::
+        template rebind_alloc<Element>;
+      ObjectAllocator object_allocator(allocator_);
+      for (std::size_t index = 0; index < size_; ++index)
+      {
+        NuoAllocatorTraits<ObjectAllocator>::destroy(
+          object_allocator, Object() + index);
+      }
+    }
+  }
+
+  void Destroy() noexcept override
+  {
+    using UnitAllocator = typename NuoAllocatorTraits<Alloc>::
+      template rebind_alloc<NuoSharedArrayUnit>;
+    using UnitPointer = typename NuoAllocatorTraits<UnitAllocator>::pointer;
+    UnitAllocator unit_allocator(allocator_);
+    const std::size_t units = units_;
+    this->~NuoAllocatedSharedArrayControl();
+    NuoAllocatorTraits<UnitAllocator>::deallocate(
+      unit_allocator,
+      reinterpret_cast<UnitPointer>(
+        reinterpret_cast<NuoSharedArrayUnit*>(this)),
+      units);
+  }
+
+private:
+  [[no_unique_address]] Alloc allocator_;
+  std::size_t size_ = 0;
+  std::size_t units_ = 0;
 };
 
 } /* namespace detail */
@@ -274,8 +417,16 @@ class NuoSharedPtr
   friend NuoSharedPtr<U> NuoMakeShared(Args&&... args);
 
   template <typename U, typename A, typename... Args>
+    requires (!std::is_array_v<U> && !std::is_void_v<U> &&
+              !std::is_reference_v<U> && !std::is_function_v<U>)
   friend NuoSharedPtr<U> NuoAllocateShared(const A& allocator,
                                            Args&&... args);
+
+  template <typename U, typename A>
+    requires (!std::is_array_v<U> && !std::is_void_v<U> &&
+              !std::is_reference_v<U> && !std::is_function_v<U>)
+  friend NuoSharedPtr<U> NuoAllocateSharedForOverwrite(
+    const A& allocator);
 
 public:
   using element_type = T;
@@ -759,6 +910,16 @@ class NuoSharedPtr<T[]>
 
   template <typename U>
   friend class NuoWeakPtr;
+
+  template <typename U, typename A>
+    requires (std::is_array_v<U> && std::extent_v<U> == 0)
+  friend NuoSharedPtr<U> NuoAllocateShared(const A& allocator,
+                                           std::size_t size);
+
+  template <typename U, typename A>
+    requires (std::is_array_v<U> && std::extent_v<U> == 0)
+  friend NuoSharedPtr<U> NuoAllocateSharedForOverwrite(
+    const A& allocator, std::size_t size);
 
 public:
   using element_type = T;
@@ -1349,15 +1510,11 @@ NuoSharedPtr<T> NuoMakeSharedForOverwrite(std::size_t size)
    This object form allocates the control block and the object together and
    uses the rebound allocator for construction and destruction. */
 template <typename T, typename Alloc, typename... Args>
+  requires (!std::is_array_v<T> && !std::is_void_v<T> &&
+            !std::is_reference_v<T> && !std::is_function_v<T>)
 NuoSharedPtr<T> NuoAllocateShared(const Alloc& allocator, Args&&... args)
 {
-  static_assert(!std::is_array_v<T>,
-                "NuoAllocateShared array form is not implemented");
-  static_assert(!std::is_void_v<T> && !std::is_reference_v<T> &&
-                !std::is_function_v<T>,
-                "NuoAllocateShared requires an object type");
-
-  using Control = detail::NuoAllocatedSharedObjectControl<T, Alloc>;
+  using Control = detail::NuoAllocatedSharedObjectControl<T, Alloc, false>;
   using ControlAllocator = typename NuoAllocatorTraits<Alloc>::
     template rebind_alloc<Control>;
 
@@ -1377,6 +1534,101 @@ NuoSharedPtr<T> NuoAllocateShared(const Alloc& allocator, Args&&... args)
   }
   return NuoSharedPtr<T>(control->Object(), control,
                          detail::NuoAdoptSharedTag{});
+}
+
+template <typename T, typename Alloc>
+  requires (std::is_array_v<T> && std::extent_v<T> == 0)
+NuoSharedPtr<T> NuoAllocateShared(const Alloc& allocator, std::size_t size)
+{
+  using Element = std::remove_extent_t<T>;
+  static_assert(!std::is_void_v<Element>,
+                "NuoAllocateShared requires an object element type");
+  using Control = detail::NuoAllocatedSharedArrayControl<T, Alloc, false>;
+  using Unit = detail::NuoSharedArrayUnit;
+  using UnitAllocator = typename NuoAllocatorTraits<Alloc>::
+    template rebind_alloc<Unit>;
+  using UnitPointer = typename NuoAllocatorTraits<UnitAllocator>::pointer;
+
+  const std::size_t bytes =
+    Control::StorageOffset() + size * sizeof(Element);
+  const std::size_t units = (bytes + sizeof(Unit) - 1) / sizeof(Unit);
+  UnitAllocator unit_allocator(allocator);
+  UnitPointer raw =
+    NuoAllocatorTraits<UnitAllocator>::allocate(unit_allocator, units);
+  try
+  {
+    Control* control =
+      ::new (static_cast<void*>(raw)) Control(allocator, size, units);
+    return NuoSharedPtr<T>(control->Object(), control,
+                           detail::NuoAdoptSharedTag{});
+  }
+  catch (...)
+  {
+    NuoAllocatorTraits<UnitAllocator>::deallocate(
+      unit_allocator, raw, units);
+    throw;
+  }
+}
+
+template <typename T, typename Alloc>
+  requires (!std::is_array_v<T> && !std::is_void_v<T> &&
+            !std::is_reference_v<T> && !std::is_function_v<T>)
+NuoSharedPtr<T> NuoAllocateSharedForOverwrite(const Alloc& allocator)
+{
+  using Control = detail::NuoAllocatedSharedObjectControl<T, Alloc, true>;
+  using ControlAllocator = typename NuoAllocatorTraits<Alloc>::
+    template rebind_alloc<Control>;
+
+  ControlAllocator control_allocator(allocator);
+  Control* control =
+    NuoAllocatorTraits<ControlAllocator>::allocate(control_allocator, 1);
+  try
+  {
+    ::new (static_cast<void*>(control)) Control(allocator);
+  }
+  catch (...)
+  {
+    NuoAllocatorTraits<ControlAllocator>::deallocate(
+      control_allocator, control, 1);
+    throw;
+  }
+  return NuoSharedPtr<T>(control->Object(), control,
+                         detail::NuoAdoptSharedTag{});
+}
+
+template <typename T, typename Alloc>
+  requires (std::is_array_v<T> && std::extent_v<T> == 0)
+NuoSharedPtr<T> NuoAllocateSharedForOverwrite(const Alloc& allocator,
+                                              std::size_t size)
+{
+  using Element = std::remove_extent_t<T>;
+  static_assert(!std::is_void_v<Element>,
+                "NuoAllocateShared requires an object element type");
+  using Control = detail::NuoAllocatedSharedArrayControl<T, Alloc, true>;
+  using Unit = detail::NuoSharedArrayUnit;
+  using UnitAllocator = typename NuoAllocatorTraits<Alloc>::
+    template rebind_alloc<Unit>;
+  using UnitPointer = typename NuoAllocatorTraits<UnitAllocator>::pointer;
+
+  const std::size_t bytes =
+    Control::StorageOffset() + size * sizeof(Element);
+  const std::size_t units = (bytes + sizeof(Unit) - 1) / sizeof(Unit);
+  UnitAllocator unit_allocator(allocator);
+  UnitPointer raw =
+    NuoAllocatorTraits<UnitAllocator>::allocate(unit_allocator, units);
+  try
+  {
+    Control* control =
+      ::new (static_cast<void*>(raw)) Control(allocator, size, units);
+    return NuoSharedPtr<T>(control->Object(), control,
+                           detail::NuoAdoptSharedTag{});
+  }
+  catch (...)
+  {
+    NuoAllocatorTraits<UnitAllocator>::deallocate(
+      unit_allocator, raw, units);
+    throw;
+  }
 }
 
 template <typename T, typename U>

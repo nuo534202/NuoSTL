@@ -106,6 +106,83 @@ struct Self : nuostl::NuoEnableSharedFromThis<Self>
   int value = 5;
 };
 
+struct DefaultCounted
+{
+  inline static int constructions = 0;
+  inline static int destructions = 0;
+
+  DefaultCounted() : value(42)
+  {
+    ++constructions;
+  }
+
+  ~DefaultCounted()
+  {
+    ++destructions;
+  }
+
+  int value;
+
+  static void Reset()
+  {
+    constructions = 0;
+    destructions = 0;
+  }
+};
+
+struct ThrowingDefault
+{
+  inline static int constructions = 0;
+  inline static int destructions = 0;
+  inline static int throw_after = 0;
+
+  ThrowingDefault()
+  {
+    if (constructions == throw_after)
+    {
+      throw std::runtime_error("default construction failed");
+    }
+    ++constructions;
+  }
+
+  ~ThrowingDefault()
+  {
+    ++destructions;
+  }
+
+  static void Reset(int allowed_constructions)
+  {
+    constructions = 0;
+    destructions = 0;
+    throw_after = allowed_constructions;
+  }
+};
+
+template <typename StandardFactory, typename NuoFactory>
+void CheckFactoryParity(StandardFactory standard_factory,
+                        NuoFactory nuo_factory)
+{
+  AllocatorState::Reset();
+  {
+    auto pointer = standard_factory();
+    (void)pointer;
+  }
+  const int allocations = AllocatorState::allocations;
+  const int deallocations = AllocatorState::deallocations;
+  const int constructs = AllocatorState::constructs;
+  const int destroys = AllocatorState::destroys;
+
+  AllocatorState::Reset();
+  {
+    auto pointer = nuo_factory();
+    (void)pointer;
+  }
+  assert(allocations == AllocatorState::allocations);
+  assert(deallocations == AllocatorState::deallocations);
+  assert(constructs == AllocatorState::constructs);
+  assert(destroys == AllocatorState::destroys);
+}
+
 } /* namespace */
 
 void TestNuoAllocateShared::TestBasicAllocation()
@@ -198,29 +275,137 @@ void TestNuoAllocateShared::TestOtherAllocators()
   assert(*nuo_allocator == 12);
 }
 
-void TestNuoAllocateShared::TestStdParity()
+void TestNuoAllocateShared::TestArrayAllocation()
 {
   AllocatorState::Reset();
   {
-    std::shared_ptr<int> pointer =
-      std::allocate_shared<int>(TrackingAllocator<int>(), 5);
-    assert(*pointer == 5);
+    auto pointer =
+      nuostl::NuoAllocateShared<int[]>(TrackingAllocator<int>(), 3);
+    assert(pointer.UseCount() == 1);
+    assert(pointer[0] == 0);
+    assert(pointer[1] == 0);
+    assert(pointer[2] == 0);
+    assert(AllocatorState::allocations == 1);
+    assert(AllocatorState::constructs == 3);
+    assert(AllocatorState::deallocations == 0);
   }
-  const int standard_allocations = AllocatorState::allocations;
-  const int standard_deallocations = AllocatorState::deallocations;
-  const int standard_constructs = AllocatorState::constructs;
-  const int standard_destroys = AllocatorState::destroys;
+  assert(AllocatorState::deallocations == 1);
+  assert(AllocatorState::destroys == 3);
 
   AllocatorState::Reset();
   {
     auto pointer =
-      nuostl::NuoAllocateShared<int>(TrackingAllocator<int>(), 5);
-    assert(*pointer == 5);
+      nuostl::NuoAllocateShared<int[]>(TrackingAllocator<int>(), 0);
+    assert(pointer.UseCount() == 1);
   }
-  assert(standard_allocations == AllocatorState::allocations);
-  assert(standard_deallocations == AllocatorState::deallocations);
-  assert(standard_constructs == AllocatorState::constructs);
-  assert(standard_destroys == AllocatorState::destroys);
+  assert(AllocatorState::allocations == 1);
+  assert(AllocatorState::deallocations == 1);
+  assert(AllocatorState::constructs == 0);
+  assert(AllocatorState::destroys == 0);
+}
+
+void TestNuoAllocateShared::TestOverwriteAllocation()
+{
+  DefaultCounted::Reset();
+  AllocatorState::Reset();
+  {
+    auto pointer = nuostl::NuoAllocateSharedForOverwrite<DefaultCounted>(
+      TrackingAllocator<DefaultCounted>());
+    assert(pointer->value == 42);
+    assert(AllocatorState::allocations == 1);
+    assert(AllocatorState::constructs == 0);
+    assert(DefaultCounted::constructions == 1);
+  }
+  assert(DefaultCounted::destructions == 1);
+  assert(AllocatorState::deallocations == 1);
+  assert(AllocatorState::destroys == 0);
+
+  DefaultCounted::Reset();
+  AllocatorState::Reset();
+  {
+    auto pointer =
+      nuostl::NuoAllocateSharedForOverwrite<DefaultCounted[]>(
+        TrackingAllocator<DefaultCounted>(), 2);
+    assert(pointer[0].value == 42);
+    assert(pointer[1].value == 42);
+    assert(AllocatorState::allocations == 1);
+    assert(AllocatorState::constructs == 0);
+    assert(DefaultCounted::constructions == 2);
+  }
+  assert(DefaultCounted::destructions == 2);
+  assert(AllocatorState::deallocations == 1);
+  assert(AllocatorState::destroys == 0);
+}
+
+void TestNuoAllocateShared::TestArrayThrowingConstruction()
+{
+  ThrowingDefault::Reset(1);
+  AllocatorState::Reset();
+  bool caught = false;
+  try
+  {
+    auto pointer = nuostl::NuoAllocateShared<ThrowingDefault[]>(
+      TrackingAllocator<ThrowingDefault>(), 3);
+    (void)pointer;
+  }
+  catch (const std::runtime_error&)
+  {
+    caught = true;
+  }
+  assert(caught);
+  assert(AllocatorState::allocations == 1);
+  assert(AllocatorState::deallocations == 1);
+  assert(AllocatorState::constructs == 2);
+  assert(AllocatorState::destroys == 1);
+  assert(ThrowingDefault::constructions == 1);
+  assert(ThrowingDefault::destructions == 1);
+}
+
+void TestNuoAllocateShared::TestStdParity()
+{
+  CheckFactoryParity(
+    []()
+    {
+      return std::allocate_shared<int>(TrackingAllocator<int>(), 5);
+    },
+    []()
+    {
+      return nuostl::NuoAllocateShared<int>(TrackingAllocator<int>(), 5);
+    });
+
+  CheckFactoryParity(
+    []()
+    {
+      return std::allocate_shared<int[]>(TrackingAllocator<int>(), 3);
+    },
+    []()
+    {
+      return nuostl::NuoAllocateShared<int[]>(TrackingAllocator<int>(), 3);
+    });
+
+  CheckFactoryParity(
+    []()
+    {
+      return std::allocate_shared_for_overwrite<DefaultCounted>(
+        TrackingAllocator<DefaultCounted>());
+    },
+    []()
+    {
+      return nuostl::NuoAllocateSharedForOverwrite<DefaultCounted>(
+        TrackingAllocator<DefaultCounted>());
+    });
+
+  CheckFactoryParity(
+    []()
+    {
+      return std::allocate_shared_for_overwrite<DefaultCounted[]>(
+        TrackingAllocator<DefaultCounted>(), 2);
+    },
+    []()
+    {
+      return nuostl::NuoAllocateSharedForOverwrite<DefaultCounted[]>(
+        TrackingAllocator<DefaultCounted>(), 2);
+    });
 }
 
 void TestNuoAllocateShared::TestSuite()
@@ -230,6 +415,9 @@ void TestNuoAllocateShared::TestSuite()
   TestThrowingConstruction();
   TestEnableSharedFromThis();
   TestOtherAllocators();
+  TestArrayAllocation();
+  TestOverwriteAllocation();
+  TestArrayThrowingConstruction();
   TestStdParity();
 }
 
