@@ -57,6 +57,7 @@
 
 /* 2. Extra Components */
 #include "utils/test_nuo_pool_allocator.hpp"
+#include "utils/test_nuo_utility.hpp"
 
 #include "extra/test_nuo_big_integer.hpp"
 #include "extra/test_nuo_complex.hpp"

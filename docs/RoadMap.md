@@ -123,6 +123,16 @@
   the corresponding `<bit>` functions
 - [x] NuoRotl / NuoRotr – Similar to `std::rotl` and `std::rotr`
 
+### Utility
+
+- [x] NuoIntegerSequence / NuoIndexSequence – Similar to
+  `std::integer_sequence` and `std::index_sequence`
+- [x] NuoMakeIntegerSequence / NuoMakeIndexSequence / NuoIndexSequenceFor –
+  Similar to the corresponding `<utility>` helpers
+- [x] NuoExchange – Similar to `std::exchange`
+- [x] NuoAsConst – Similar to `std::as_const`
+- [x] NuoDeclval – Similar to `std::declval`
+
 ### Function Objects (Functors)
 
 - [x] NuoDivides – Similar to `std::divides`

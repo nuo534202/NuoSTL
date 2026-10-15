@@ -63,6 +63,7 @@ int main()
 
     /* Extra */
     test::TestNuoPoolAllocator::TestSuite();
+    test::TestNuoUtility::TestSuite();
     test::TestNuoBigInteger::TestSuite();
     test::TestNuoComplex::TestSuite();
     test::TestNuoMatrix::TestSuite();
