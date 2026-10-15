@@ -1,7 +1,6 @@
 #pragma once
 
 #include <array>
-#include <bit>
 #include <cstddef>
 #include <cstdint>
 #include <functional>
@@ -12,6 +11,8 @@
 #include <ostream>
 #include <stdexcept>
 #include <string>
+
+#include "core/bit/nuo_bit.hpp"
 
 namespace nuostl
 {
@@ -192,7 +193,7 @@ public:
     size_type total = 0;
     for (size_type index = 0; index < kWordCount; ++index)
     {
-      total += static_cast<size_type>(std::popcount(words_[index]));
+      total += static_cast<size_type>(NuoPopcount(words_[index]));
     }
     return total;
   }

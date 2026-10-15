@@ -9,6 +9,7 @@
 #include "core/data_types/nuo_string.hpp"
 #include "core/data_types/nuo_tuple.hpp"
 #include "core/data_types/nuo_variant.hpp"
+#include "core/data_types/nuo_source_location.hpp"
 
 /* Associative Containers */
 #include "core/assoc_cont/nuo_map.hpp"

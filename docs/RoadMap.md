@@ -10,6 +10,7 @@
 - [x] NuoString – Similar to `std::string`
 - [x] NuoTuple – Similar to `std::tuple`
 - [x] NuoVariant – Similar to `std::variant`
+- [x] NuoSourceLocation – Similar to `std::source_location`
 
 ### Sequence Containers
 

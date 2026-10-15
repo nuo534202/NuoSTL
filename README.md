@@ -9,7 +9,7 @@ NuoSTL is a C++20 library that implements familiar STL components and adds tools
 | Area | Components |
 | --- | --- |
 | Containers | Vectors, arrays, deques, linked lists, ordered and unordered maps/sets, container adapters, fixed-size bitsets, and non-owning spans |
-| Data types | Strings, string views, pairs, tuples, optional values, variants, type-erased values, and type-erased callables |
+| Data types | Strings, string views, pairs, tuples, optional values, variants, source locations, type-erased values, and type-erased callables |
 | Memory | Unique and shared ownership, weak references, custom deleters, allocator support, and factory helpers |
 | Algorithms & utilities | Sorting, searching, heaps, sequence/set/numeric operations, bit utilities, iterators, function objects, type traits, allocators, alignment helpers, and uninitialized memory algorithms |
 | Mathematical extensions | Arbitrary-precision integer arithmetic, rational numbers, complex functions, matrix operations, and polynomial arithmetic |

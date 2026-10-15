@@ -9,6 +9,7 @@
 #include "core/data_types/test_nuo_optional.hpp"
 #include "core/data_types/test_nuo_tuple.hpp"
 #include "core/data_types/test_nuo_variant.hpp"
+#include "core/data_types/test_nuo_source_location.hpp"
 
 /* Associative Containers */
 #include "core/assoc_cont/test_nuo_map.hpp"

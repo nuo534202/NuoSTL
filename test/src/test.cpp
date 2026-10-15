@@ -12,6 +12,7 @@ int main()
     test::TestNuoOptional::test_nuo_optional();
     test::TestNuoTuple::TestNuoTupleSuite();
     test::TestNuoVariant::TestNuoVariantSuite();
+    test::TestNuoSourceLocation::TestSuite();
 
     /* Associative Containers */
     test::TestNuoMap::test_nuo_map();
