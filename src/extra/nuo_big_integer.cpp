@@ -106,7 +106,7 @@ NuoBigInteger::NuoBigInteger(std::string_view text)
     end = begin;
   }
 
-  Trim();
+  TrimMagnitude(blocks_);
   negative_ = negative && !blocks_.empty();
 }
 
@@ -366,11 +366,11 @@ NuoBigInteger NuoBigInteger::Gcd(const NuoBigInteger& lhs,
 
 /* helpers */
 
-void NuoBigInteger::Trim()
+void NuoBigInteger::TrimMagnitude(Digits& digits)
 {
-  while (!blocks_.empty() && blocks_.back() == 0)
+  while (!digits.empty() && digits.back() == 0)
   {
-    blocks_.pop_back();
+    digits.pop_back();
   }
 }
 
@@ -446,10 +446,7 @@ NuoBigInteger::Digits NuoBigInteger::SubtractMagnitude(const Digits& lhs,
     }
     result.push_back(static_cast<Digit>(difference));
   }
-  while (!result.empty() && result.back() == 0)
-  {
-    result.pop_back();
-  }
+  TrimMagnitude(result);
   return result;
 }
 
@@ -470,10 +467,7 @@ NuoBigInteger::Digits NuoBigInteger::MultiplyMagnitude(const Digits& lhs,
     }
     result[left + rhs.size()] += static_cast<Digit>(carry);
   }
-  while (!result.empty() && result.back() == 0)
-  {
-    result.pop_back();
-  }
+  TrimMagnitude(result);
   return result;
 }
 
@@ -488,6 +482,7 @@ void NuoBigInteger::DivideMagnitude(const Digits& dividend,
   {
     /* running = running * kBase + dividend[index] */
     running.insert(running.begin(), dividend[index]);
+    TrimMagnitude(running);
 
     /* Largest q below kBase with divisor * q <= running; the estimate is
        refined by bisection so no digit correction step is needed. */
@@ -515,14 +510,8 @@ void NuoBigInteger::DivideMagnitude(const Digits& dividend,
     (*quotient)[index] = low;
   }
 
-  while (!running.empty() && running.back() == 0)
-  {
-    running.pop_back();
-  }
-  while (!quotient->empty() && quotient->back() == 0)
-  {
-    quotient->pop_back();
-  }
+  TrimMagnitude(running);
+  TrimMagnitude(*quotient);
   *remainder = std::move(running);
 }
 

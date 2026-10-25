@@ -66,7 +66,7 @@ private:
   static constexpr Digit kBase = 1000000000;
   static constexpr std::size_t kDigitsPerBlock = 9;
 
-  void Trim();
+  static void TrimMagnitude(Digits& digits);
   void SetFromUnsigned(unsigned long long magnitude);
   static int CompareMagnitude(const Digits& lhs, const Digits& rhs);
   static Digits AddMagnitude(const Digits& lhs, const Digits& rhs);
