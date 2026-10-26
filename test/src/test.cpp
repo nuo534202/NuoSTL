@@ -58,7 +58,7 @@ FindInvalidSuiteEntry(
     return std::nullopt;
 }
 
-constexpr std::size_t kExpectedSuiteCount = 50;
+constexpr std::size_t kExpectedSuiteCount = 51;
 
 /* C++ cannot enumerate test declarations, so this table is the manifest. */
 constexpr SuiteEntry kSuites[] = {
@@ -130,6 +130,7 @@ constexpr SuiteEntry kSuites[] = {
 
     /* Extra components. */
     {"TestNuoPoolAllocator", test::TestNuoPoolAllocator::TestSuite},
+    {"TestNuoFunctional", test::TestNuoFunctional::TestSuite},
     {"TestNuoUtility", test::TestNuoUtility::TestSuite},
     {"TestNuoBigInteger", test::TestNuoBigInteger::TestSuite},
     {"TestNuoComplex", test::TestNuoComplex::TestSuite},

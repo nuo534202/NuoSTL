@@ -141,6 +141,7 @@ public:
 template <typename T>
 class NuoLogicalNot : public NuoUnaryFunction<T, bool>
 {
+public:
   bool operator()(const T& x) const { return !x; }
 };
 
@@ -212,14 +213,15 @@ public:
 template <typename Arg1, typename Arg2>
 class NuoProjectFirst : public NuoBinaryFunction<Arg1, Arg2, Arg1>
 {
-  Arg1 operator()(const Arg1& x, const Arg2& y) const { return x; }
+public:
+  Arg1 operator()(const Arg1& x, const Arg2&) const { return x; }
 };
 
 template <typename Arg1, typename Arg2>
 class NuoProjectSecond : public NuoBinaryFunction<Arg1, Arg2, Arg2>
 {
 public:
-  Arg2 operator()(const Arg1& x, const Arg2& y) const { return y; }
+  Arg2 operator()(const Arg1&, const Arg2& y) const { return y; }
 };
 
 /*****************************************************************************/
