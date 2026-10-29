@@ -15,6 +15,10 @@ private:
   static void test_erase();
   static void test_pair_values_and_comparison();
   static void test_rebalance_stress();
+  static void test_move_noexcept_traits();
+  static void test_tree_move_failures();
+  static void test_moved_from_tree_reuse();
+  static void test_move_operations_exception_safety();
 
 public:
   static void test_nuo_rb_tree();

@@ -1,7 +1,7 @@
 #pragma once
 
 #include <initializer_list>
-
+#include <type_traits>
 #include <utility>
 
 #include "core/data_types/nuo_pair.hpp"
@@ -502,10 +502,8 @@ public:
     : node_(node->ToBase())
   {
   }
-  NuoRbTreeIterator(const NuoRbTreeIterator& iterator)
-    : node_(iterator.node_)
-  {
-  }
+  NuoRbTreeIterator(const NuoRbTreeIterator&) = default;
+  NuoRbTreeIterator& operator=(const NuoRbTreeIterator&) = default;
 
   reference operator*() const
   {
@@ -628,10 +626,8 @@ public:
     : node_(iterator.node_)
   {
   }
-  NuoRbTreeConstIterator(const NuoRbTreeConstIterator& iterator)
-    : node_(iterator.node_)
-  {
-  }
+  NuoRbTreeConstIterator(const NuoRbTreeConstIterator&) = default;
+  NuoRbTreeConstIterator& operator=(const NuoRbTreeConstIterator&) = default;
 
   reference operator*() const
   {
@@ -770,6 +766,12 @@ private:
   size_type   node_count_;  /* Number of nodes. */
   key_compare key_comp_;    /* Key comparison rule. */
 
+  static_assert(std::is_copy_constructible_v<key_compare>,
+                "NuoRbTree requires Compare to be copy-constructible.");
+  static_assert(std::is_copy_assignable_v<key_compare> &&
+                    std::is_move_assignable_v<key_compare>,
+                "NuoRbTree requires Compare to be copy- and move-assignable.");
+
 private:
   /* Access the root, minimum node, and maximum node. */
   base_ptr& Root() const { return header_->parent_; }
@@ -782,21 +784,33 @@ public:
   explicit NuoRbTree(const key_compare& comp);
 
   NuoRbTree(const NuoRbTree& rhs);
-  NuoRbTree(NuoRbTree&& rhs) noexcept;
+  NuoRbTree(NuoRbTree&& rhs)
+    noexcept(std::is_nothrow_copy_constructible_v<key_compare>);
 
   NuoRbTree& operator=(const NuoRbTree& rhs);
-  NuoRbTree& operator=(NuoRbTree&& rhs);
+  NuoRbTree& operator=(NuoRbTree&& rhs)
+    noexcept(std::is_nothrow_copy_constructible_v<key_compare> &&
+             std::is_nothrow_move_assignable_v<key_compare>);
 
   ~NuoRbTree()
   {
-    Clear();
-    base_allocator::Deallocate(header_);
+    if (header_ != nullptr)
+    {
+      Clear();
+      base_allocator::Deallocate(header_);
+    }
   }
 
 public:
   /* Iterator-related operations */
-  iterator       Begin() noexcept { return Leftmost(); }
-  const_iterator Begin() const noexcept { return Leftmost(); }
+  iterator Begin() noexcept
+  {
+    return iterator(header_ == nullptr ? nullptr : header_->left_);
+  }
+  const_iterator Begin() const noexcept
+  {
+    return const_iterator(header_ == nullptr ? nullptr : header_->left_);
+  }
   iterator       End() noexcept { return header_; }
   const_iterator End() const noexcept { return header_; }
 
@@ -964,8 +978,11 @@ public:
     return nuo_make_pair(it, ++next);
   }
 
-  /* Swap two rb-trees. */
-  void Swap(NuoRbTree& rhs) noexcept;
+  /* Swap two rb-trees. If Compare swapping can throw, callers must assign or
+     destroy both trees before reusing them after an exception. */
+  void Swap(NuoRbTree& rhs)
+    noexcept(std::is_nothrow_move_constructible_v<key_compare> &&
+             std::is_nothrow_move_assignable_v<key_compare>);
 
 private:
   /* Node-related helpers */
@@ -976,6 +993,7 @@ private:
 
   /* Initialization and reset */
   void RbTreeInit();
+  void EnsureHeader();
   void Reset();
 
   /* Determine insertion positions. */
@@ -1009,29 +1027,41 @@ NuoRbTree<T, Compare>::NuoRbTree(const key_compare& comp)
 /* Copy constructor */
 template <typename T, typename Compare>
 NuoRbTree<T, Compare>::NuoRbTree(const NuoRbTree& rhs)
+  : key_comp_(rhs.key_comp_)
 {
   RbTreeInit();
-  if (rhs.node_count_ != 0)
+  try
   {
-    Root() = CopyFrom(rhs.Root(), header_);
-    Leftmost() = NuoRbTreeMin(Root());
-    Rightmost() = NuoRbTreeMax(Root());
+    if (rhs.node_count_ != 0)
+    {
+      Root() = CopyFrom(rhs.Root(), header_);
+      Leftmost() = NuoRbTreeMin(Root());
+      Rightmost() = NuoRbTreeMax(Root());
+    }
+    node_count_ = rhs.node_count_;
   }
-  node_count_ = rhs.node_count_;
-  key_comp_ = rhs.key_comp_;
+  catch (...)
+  {
+    base_allocator::Deallocate(header_);
+    header_ = nullptr;
+    throw;
+  }
 }
 
-/* Move constructor */
+/* Move construction copies the comparator so the moved-from tree remains
+   reusable. The node storage itself is transferred without allocation. */
 template <typename T, typename Compare>
-NuoRbTree<T, Compare>::NuoRbTree(NuoRbTree&& rhs) noexcept
-  : header_(NuoMove(rhs.header_)),
+NuoRbTree<T, Compare>::NuoRbTree(NuoRbTree&& rhs)
+  noexcept(std::is_nothrow_copy_constructible_v<Compare>)
+  : header_(rhs.header_),
     node_count_(rhs.node_count_),
     key_comp_(rhs.key_comp_)
 {
   rhs.Reset();
 }
 
-/* Copy assignment operator */
+/* Copy assignment installs the comparator before copying nodes. If comparator
+   assignment throws, the destination remains a consistent empty tree. */
 template <typename T, typename Compare>
 NuoRbTree<T, Compare>&
 NuoRbTree<T, Compare>::operator=(const NuoRbTree& rhs)
@@ -1039,6 +1069,8 @@ NuoRbTree<T, Compare>::operator=(const NuoRbTree& rhs)
   if (this != &rhs)
   {
     Clear();
+    EnsureHeader();
+    key_comp_ = rhs.key_comp_;
 
     if (rhs.node_count_ != 0)
     {
@@ -1048,23 +1080,34 @@ NuoRbTree<T, Compare>::operator=(const NuoRbTree& rhs)
     }
 
     node_count_ = rhs.node_count_;
-    key_comp_ = rhs.key_comp_;
   }
   return *this;
 }
 
-/* Move assignment operator */
+/* Comparator copy construction leaves both trees unchanged if it throws. The
+   comparator assignment is committed after clearing, while both trees are
+   empty or have no owned sentinel, so a later failure remains consistent. */
 template <typename T, typename Compare>
 NuoRbTree<T, Compare>&
 NuoRbTree<T, Compare>::operator=(NuoRbTree&& rhs)
+  noexcept(std::is_nothrow_copy_constructible_v<Compare> &&
+           std::is_nothrow_move_assignable_v<Compare>)
 {
   if (this != &rhs)
   {
+    key_compare replacement_comp(rhs.key_comp_);
+
     Clear();
-    base_allocator::Deallocate(header_);
+    if (header_ != nullptr)
+    {
+      base_allocator::Deallocate(header_);
+      header_ = nullptr;
+    }
+
+    key_comp_ = NuoMove(replacement_comp);
+
     header_ = NuoMove(rhs.header_);
     node_count_ = rhs.node_count_;
-    key_comp_ = rhs.key_comp_;
     rhs.Reset();
   }
   return *this;
@@ -1081,9 +1124,23 @@ NuoRbTree<T, Compare>::EmplaceMulti(Args&&... args)
 {
   NUO_THROW_LENGTH_ERROR_IF(node_count_ > MaxSize() - 1,
                             "NuoRbTree<T, Comp>'s size too big");
+  EnsureHeader();
   node_ptr np = CreateNode(NuoForward<Args>(args)...);
-  auto res = GetInsertMultiPos(value_traits::GetKey(np->value_));
-  return InsertNodeAt(res.first, np, res.second);
+  try
+  {
+    auto res = GetInsertMultiPos(value_traits::GetKey(np->value_));
+    iterator result = InsertNodeAt(res.first, np, res.second);
+    np = nullptr;
+    return result;
+  }
+  catch (...)
+  {
+    if (np != nullptr)
+    {
+      DestroyNode(np);
+    }
+    throw;
+  }
 }
 
 /* Construct an element in place; duplicate keys are not allowed. */
@@ -1094,14 +1151,29 @@ NuoRbTree<T, Compare>::EmplaceUnique(Args&&... args)
 {
   NUO_THROW_LENGTH_ERROR_IF(node_count_ > MaxSize() - 1,
                             "NuoRbTree<T, Comp>'s size too big");
+  EnsureHeader();
   node_ptr np = CreateNode(NuoForward<Args>(args)...);
-  auto res = GetInsertUniquePos(value_traits::GetKey(np->value_));
-  if (res.second)
-  {  /* Insertion succeeded. */
-    return nuo_make_pair(InsertNodeAt(res.first.first, np, res.first.second), true);
+  try
+  {
+    auto res = GetInsertUniquePos(value_traits::GetKey(np->value_));
+    if (res.second)
+    {  /* Insertion succeeded. */
+      iterator result = InsertNodeAt(res.first.first, np, res.first.second);
+      np = nullptr;
+      return nuo_make_pair(result, true);
+    }
+    DestroyNode(np);
+    np = nullptr;
+    return nuo_make_pair(iterator(res.first.first), false);
   }
-  DestroyNode(np);
-  return nuo_make_pair(iterator(res.first.first), false);
+  catch (...)
+  {
+    if (np != nullptr)
+    {
+      DestroyNode(np);
+    }
+    throw;
+  }
 }
 
 /* Construct an element in place with a hint; duplicate keys are allowed. */
@@ -1112,37 +1184,61 @@ NuoRbTree<T, Compare>::EmplaceMultiUseHint(iterator hint, Args&&... args)
 {
   NUO_THROW_LENGTH_ERROR_IF(node_count_ > MaxSize() - 1,
                             "NuoRbTree<T, Comp>'s size too big");
+  EnsureHeader();
   node_ptr np = CreateNode(NuoForward<Args>(args)...);
-  if (node_count_ == 0)
+  try
   {
-    return InsertNodeAt(header_, np, true);
+    if (node_count_ == 0)
+    {
+      iterator result = InsertNodeAt(header_, np, true);
+      np = nullptr;
+      return result;
+    }
+    key_type key = value_traits::GetKey(np->value_);
+    if (hint == Begin())
+    {  /* hint points to begin. */
+      if (key_comp_(key, value_traits::GetKey(*hint)))
+      {
+        iterator result = InsertNodeAt(hint.node_, np, true);
+        np = nullptr;
+        return result;
+      }
+      else
+      {
+        auto pos = GetInsertMultiPos(key);
+        iterator result = InsertNodeAt(pos.first, np, pos.second);
+        np = nullptr;
+        return result;
+      }
+    }
+    else if (hint == End())
+    {  /* hint points to end. */
+      if (!key_comp_(key, value_traits::GetKey(Rightmost()->ToNode()->value_)))
+      {
+        iterator result = InsertNodeAt(Rightmost(), np, false);
+        np = nullptr;
+        return result;
+      }
+      else
+      {
+        auto pos = GetInsertMultiPos(key);
+        iterator result = InsertNodeAt(pos.first, np, pos.second);
+        np = nullptr;
+        return result;
+      }
+    }
+    iterator result = InsertMultiUseHint(hint, key, np);
+    np = nullptr;
+    return result;
   }
-  key_type key = value_traits::GetKey(np->value_);
-  if (hint == Begin())
-  {  /* hint points to begin. */
-    if (key_comp_(key, value_traits::GetKey(*hint)))
+  catch (...)
+  {
+    if (np != nullptr)
     {
-      return InsertNodeAt(hint.node_, np, true);
+      DestroyNode(np);
     }
-    else
-    {
-      auto pos = GetInsertMultiPos(key);
-      return InsertNodeAt(pos.first, np, pos.second);
-    }
+    throw;
   }
-  else if (hint == End())
-  {  /* hint points to end. */
-    if (!key_comp_(key, value_traits::GetKey(Rightmost()->ToNode()->value_)))
-    {
-      return InsertNodeAt(Rightmost(), np, false);
-    }
-    else
-    {
-      auto pos = GetInsertMultiPos(key);
-      return InsertNodeAt(pos.first, np, pos.second);
-    }
-  }
-  return InsertMultiUseHint(hint, key, np);
 }
 
 /* Construct an element in place with a hint; duplicate keys are not allowed. */
@@ -1153,47 +1249,73 @@ NuoRbTree<T, Compare>::EmplaceUniqueUseHint(iterator hint, Args&&... args)
 {
   NUO_THROW_LENGTH_ERROR_IF(node_count_ > MaxSize() - 1,
                             "NuoRbTree<T, Comp>'s size too big");
+  EnsureHeader();
   node_ptr np = CreateNode(NuoForward<Args>(args)...);
-  if (node_count_ == 0)
+  try
   {
-    return InsertNodeAt(header_, np, true);
-  }
-  key_type key = value_traits::GetKey(np->value_);
-  if (hint == Begin())
-  {  /* hint points to begin. */
-    if (key_comp_(key, value_traits::GetKey(*hint)))
+    if (node_count_ == 0)
     {
-      return InsertNodeAt(hint.node_, np, true);
+      iterator result = InsertNodeAt(header_, np, true);
+      np = nullptr;
+      return result;
     }
-    else
-    {
-      auto pos = GetInsertUniquePos(key);
-      if (!pos.second)
+    key_type key = value_traits::GetKey(np->value_);
+    if (hint == Begin())
+    {  /* hint points to begin. */
+      if (key_comp_(key, value_traits::GetKey(*hint)))
       {
-        DestroyNode(np);
-        return pos.first.first;
+        iterator result = InsertNodeAt(hint.node_, np, true);
+        np = nullptr;
+        return result;
       }
-      return InsertNodeAt(pos.first.first, np, pos.first.second);
-    }
-  }
-  else if (hint == End())
-  {  /* hint points to end. */
-    if (key_comp_(value_traits::GetKey(Rightmost()->ToNode()->value_), key))
-    {
-      return InsertNodeAt(Rightmost(), np, false);
-    }
-    else
-    {
-      auto pos = GetInsertUniquePos(key);
-      if (!pos.second)
+      else
       {
-        DestroyNode(np);
-        return pos.first.first;
+        auto pos = GetInsertUniquePos(key);
+        if (!pos.second)
+        {
+          DestroyNode(np);
+          np = nullptr;
+          return pos.first.first;
+        }
+        iterator result = InsertNodeAt(pos.first.first, np, pos.first.second);
+        np = nullptr;
+        return result;
       }
-      return InsertNodeAt(pos.first.first, np, pos.first.second);
     }
+    else if (hint == End())
+    {  /* hint points to end. */
+      if (key_comp_(value_traits::GetKey(Rightmost()->ToNode()->value_), key))
+      {
+        iterator result = InsertNodeAt(Rightmost(), np, false);
+        np = nullptr;
+        return result;
+      }
+      else
+      {
+        auto pos = GetInsertUniquePos(key);
+        if (!pos.second)
+        {
+          DestroyNode(np);
+          np = nullptr;
+          return pos.first.first;
+        }
+        iterator result = InsertNodeAt(pos.first.first, np, pos.first.second);
+        np = nullptr;
+        return result;
+      }
+    }
+    iterator result = InsertUniqueUseHint(hint, key, np);
+    np = nullptr;
+    return result;
   }
-  return InsertUniqueUseHint(hint, key, np);
+  catch (...)
+  {
+    if (np != nullptr)
+    {
+      DestroyNode(np);
+    }
+    throw;
+  }
 }
 
 /* Insert an element; duplicate keys are allowed. */
@@ -1303,6 +1425,10 @@ template <typename T, typename Compare>
 typename NuoRbTree<T, Compare>::iterator
 NuoRbTree<T, Compare>::Find(const key_type& key)
 {
+  if (header_ == nullptr)
+  {
+    return End();
+  }
   auto y = header_;  /* Last node whose key is not less than key. */
   auto x = Root();
   while (x != nullptr)
@@ -1324,6 +1450,10 @@ template <typename T, typename Compare>
 typename NuoRbTree<T, Compare>::const_iterator
 NuoRbTree<T, Compare>::Find(const key_type& key) const
 {
+  if (header_ == nullptr)
+  {
+    return End();
+  }
   auto y = header_;
   auto x = Root();
   while (x != nullptr)
@@ -1346,6 +1476,10 @@ template <typename T, typename Compare>
 typename NuoRbTree<T, Compare>::iterator
 NuoRbTree<T, Compare>::LowerBound(const key_type& key)
 {
+  if (header_ == nullptr)
+  {
+    return End();
+  }
   auto y = header_;
   auto x = Root();
   while (x != nullptr)
@@ -1366,6 +1500,10 @@ template <typename T, typename Compare>
 typename NuoRbTree<T, Compare>::const_iterator
 NuoRbTree<T, Compare>::LowerBound(const key_type& key) const
 {
+  if (header_ == nullptr)
+  {
+    return End();
+  }
   auto y = header_;
   auto x = Root();
   while (x != nullptr)
@@ -1387,6 +1525,10 @@ template <typename T, typename Compare>
 typename NuoRbTree<T, Compare>::iterator
 NuoRbTree<T, Compare>::UpperBound(const key_type& key)
 {
+  if (header_ == nullptr)
+  {
+    return End();
+  }
   auto y = header_;
   auto x = Root();
   while (x != nullptr)
@@ -1407,6 +1549,10 @@ template <typename T, typename Compare>
 typename NuoRbTree<T, Compare>::const_iterator
 NuoRbTree<T, Compare>::UpperBound(const key_type& key) const
 {
+  if (header_ == nullptr)
+  {
+    return End();
+  }
   auto y = header_;
   auto x = Root();
   while (x != nullptr)
@@ -1425,13 +1571,18 @@ NuoRbTree<T, Compare>::UpperBound(const key_type& key) const
 
 /* Swap two rb-trees. */
 template <typename T, typename Compare>
-void NuoRbTree<T, Compare>::Swap(NuoRbTree& rhs) noexcept
+void NuoRbTree<T, Compare>::Swap(NuoRbTree& rhs)
+  noexcept(std::is_nothrow_move_constructible_v<Compare> &&
+           std::is_nothrow_move_assignable_v<Compare>)
 {
   if (this != &rhs)
   {
+    /* If a comparator swap throws, node ownership remains unchanged. Comparator
+       objects may be left moved from, so the trees must be assigned or destroyed
+       before further use. */
+    NuoSwap(key_comp_, rhs.key_comp_);
     NuoSwap(header_, rhs.header_);
     NuoSwap(node_count_, rhs.node_count_);
-    NuoSwap(key_comp_, rhs.key_comp_);
   }
 }
 
@@ -1492,7 +1643,18 @@ void NuoRbTree<T, Compare>::RbTreeInit()
   node_count_ = 0;
 }
 
-/* Reset function */
+/* A moved-from tree has no sentinel. Query functions treat that representation
+   as empty, and mutating insertion paths install a new sentinel on demand. The
+   comparator must remain callable after move construction for this reuse. */
+template <typename T, typename Compare>
+void NuoRbTree<T, Compare>::EnsureHeader()
+{
+  if (header_ == nullptr)
+  {
+    RbTreeInit();
+  }
+}
+
 template <typename T, typename Compare>
 void NuoRbTree<T, Compare>::Reset()
 {
@@ -1505,6 +1667,7 @@ template <typename T, typename Compare>
 nuo_pair<typename NuoRbTree<T, Compare>::base_ptr, bool>
 NuoRbTree<T, Compare>::GetInsertMultiPos(const key_type& key)
 {
+  EnsureHeader();
   auto x = Root();
   auto y = header_;
   bool add_to_left = true;
@@ -1522,6 +1685,7 @@ template <typename T, typename Compare>
 nuo_pair<nuo_pair<typename NuoRbTree<T, Compare>::base_ptr, bool>, bool>
 NuoRbTree<T, Compare>::GetInsertUniquePos(const key_type& key)
 {
+  EnsureHeader();
   /* The first pair contains the insertion parent and side.
      The second value indicates whether insertion is allowed. */
   auto x = Root();
@@ -1764,9 +1928,12 @@ bool operator>=(const NuoRbTree<T, Compare>& lhs,
   return !(lhs < rhs);
 }
 
-/* Overload nuostl swap */
+/* Overload nuostl swap. If Compare swapping can throw, callers must assign or
+   destroy both trees before reusing them after an exception. */
 template <typename T, typename Compare>
-void swap(NuoRbTree<T, Compare>& lhs, NuoRbTree<T, Compare>& rhs) noexcept
+void swap(NuoRbTree<T, Compare>& lhs, NuoRbTree<T, Compare>& rhs)
+  noexcept(std::is_nothrow_move_constructible_v<Compare> &&
+           std::is_nothrow_move_assignable_v<Compare>)
 {
   lhs.Swap(rhs);
 }

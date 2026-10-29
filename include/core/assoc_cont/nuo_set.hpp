@@ -1,5 +1,7 @@
 #pragma once
 
+#include <type_traits>
+
 /* This header contains two template classes: NuoSet and NuoMultiset.
  * NuoSet      : a set whose key is the value itself; elements are sorted and keys are unique.
  * NuoMultiset : a set whose key is the value itself; elements are sorted and keys may repeat.
@@ -72,7 +74,7 @@ public:
   {
   }
 
-  NuoSet(NuoSet&& rhs) noexcept
+  NuoSet(NuoSet&& rhs) noexcept(std::is_nothrow_copy_constructible_v<Compare>)
     : tree_(NuoMove(rhs.tree_))
   {
   }
@@ -83,7 +85,9 @@ public:
     return *this;
   }
 
-  NuoSet& operator=(NuoSet&& rhs) noexcept
+  NuoSet& operator=(NuoSet&& rhs)
+    noexcept(std::is_nothrow_copy_constructible_v<Compare> &&
+             std::is_nothrow_move_assignable_v<Compare>)
   {
     tree_ = NuoMove(rhs.tree_);
     return *this;
@@ -198,7 +202,9 @@ public:
     return nuo_pair<const_iterator, const_iterator>(p.first, p.second);
   }
 
-  void Swap(NuoSet& rhs) noexcept
+  void Swap(NuoSet& rhs)
+    noexcept(std::is_nothrow_move_constructible_v<Compare> &&
+             std::is_nothrow_move_assignable_v<Compare>)
   {
     tree_.Swap(rhs.tree_);
   }
@@ -260,7 +266,9 @@ bool operator>=(const NuoSet<Key, Compare>& lhs, const NuoSet<Key, Compare>& rhs
 
 /* Overload nuostl swap */
 template <typename Key, typename Compare>
-void swap(NuoSet<Key, Compare>& lhs, NuoSet<Key, Compare>& rhs) noexcept
+void swap(NuoSet<Key, Compare>& lhs, NuoSet<Key, Compare>& rhs)
+  noexcept(std::is_nothrow_move_constructible_v<Compare> &&
+           std::is_nothrow_move_assignable_v<Compare>)
 {
   lhs.Swap(rhs);
 }
@@ -320,7 +328,8 @@ public:
   {
   }
 
-  NuoMultiset(NuoMultiset&& rhs) noexcept
+  NuoMultiset(NuoMultiset&& rhs)
+    noexcept(std::is_nothrow_copy_constructible_v<Compare>)
     : tree_(NuoMove(rhs.tree_))
   {
   }
@@ -331,7 +340,9 @@ public:
     return *this;
   }
 
-  NuoMultiset& operator=(NuoMultiset&& rhs) noexcept
+  NuoMultiset& operator=(NuoMultiset&& rhs)
+    noexcept(std::is_nothrow_copy_constructible_v<Compare> &&
+             std::is_nothrow_move_assignable_v<Compare>)
   {
     tree_ = NuoMove(rhs.tree_);
     return *this;
@@ -443,7 +454,9 @@ public:
     return nuo_pair<const_iterator, const_iterator>(p.first, p.second);
   }
 
-  void Swap(NuoMultiset& rhs) noexcept
+  void Swap(NuoMultiset& rhs)
+    noexcept(std::is_nothrow_move_constructible_v<Compare> &&
+             std::is_nothrow_move_assignable_v<Compare>)
   {
     tree_.Swap(rhs.tree_);
   }
@@ -505,7 +518,9 @@ bool operator>=(const NuoMultiset<Key, Compare>& lhs, const NuoMultiset<Key, Com
 
 /* Overload nuostl swap */
 template <typename Key, typename Compare>
-void swap(NuoMultiset<Key, Compare>& lhs, NuoMultiset<Key, Compare>& rhs) noexcept
+void swap(NuoMultiset<Key, Compare>& lhs, NuoMultiset<Key, Compare>& rhs)
+  noexcept(std::is_nothrow_move_constructible_v<Compare> &&
+           std::is_nothrow_move_assignable_v<Compare>)
 {
   lhs.Swap(rhs);
 }

@@ -63,11 +63,13 @@ public:
   NuoMap(std::initializer_list<value_type> ilist);
   NuoMap(std::initializer_list<value_type> ilist, const key_compare& comp);
   NuoMap(const NuoMap& rhs);
-  NuoMap(NuoMap&& rhs) noexcept;
+  NuoMap(NuoMap&& rhs) noexcept(std::is_nothrow_copy_constructible_v<Compare>);
   ~NuoMap();
 
   NuoMap& operator=(const NuoMap& rhs);
-  NuoMap& operator=(NuoMap&& rhs) noexcept;
+  NuoMap& operator=(NuoMap&& rhs)
+    noexcept(std::is_nothrow_copy_constructible_v<Compare> &&
+             std::is_nothrow_move_assignable_v<Compare>);
   NuoMap& operator=(std::initializer_list<value_type> ilist);
 
   allocator_type GetAllocator() const;
@@ -137,7 +139,9 @@ public:
   iterator Erase(const_iterator position);
   size_type Erase(const key_type& key);
   iterator Erase(const_iterator first, const_iterator last);
-  void Swap(NuoMap& rhs) noexcept;
+  void Swap(NuoMap& rhs)
+    noexcept(std::is_nothrow_move_constructible_v<Compare> &&
+             std::is_nothrow_move_assignable_v<Compare>);
   void Clear() noexcept;
 
   template <typename C2>
@@ -222,11 +226,14 @@ public:
   NuoMultimap(std::initializer_list<value_type> ilist);
   NuoMultimap(std::initializer_list<value_type> ilist, const key_compare& comp);
   NuoMultimap(const NuoMultimap& rhs);
-  NuoMultimap(NuoMultimap&& rhs) noexcept;
+  NuoMultimap(NuoMultimap&& rhs)
+    noexcept(std::is_nothrow_copy_constructible_v<Compare>);
   ~NuoMultimap();
 
   NuoMultimap& operator=(const NuoMultimap& rhs);
-  NuoMultimap& operator=(NuoMultimap&& rhs) noexcept;
+  NuoMultimap& operator=(NuoMultimap&& rhs)
+    noexcept(std::is_nothrow_copy_constructible_v<Compare> &&
+             std::is_nothrow_move_assignable_v<Compare>);
   NuoMultimap& operator=(std::initializer_list<value_type> ilist);
 
   allocator_type GetAllocator() const;
@@ -267,7 +274,9 @@ public:
   iterator Erase(const_iterator position);
   size_type Erase(const key_type& key);
   iterator Erase(const_iterator first, const_iterator last);
-  void Swap(NuoMultimap& rhs) noexcept;
+  void Swap(NuoMultimap& rhs)
+    noexcept(std::is_nothrow_move_constructible_v<Compare> &&
+             std::is_nothrow_move_assignable_v<Compare>);
   void Clear() noexcept;
 
   template <typename C2>
@@ -370,7 +379,8 @@ NuoMap<Key, T, Compare>::NuoMap(const NuoMap& rhs)
 }
 
 template <typename Key, typename T, typename Compare>
-NuoMap<Key, T, Compare>::NuoMap(NuoMap&& rhs) noexcept
+NuoMap<Key, T, Compare>::NuoMap(NuoMap&& rhs)
+  noexcept(std::is_nothrow_copy_constructible_v<Compare>)
   : tree_(NuoMove(rhs.tree_))
 {
 }
@@ -386,7 +396,9 @@ NuoMap<Key, T, Compare>& NuoMap<Key, T, Compare>::operator=(const NuoMap& rhs)
 }
 
 template <typename Key, typename T, typename Compare>
-NuoMap<Key, T, Compare>& NuoMap<Key, T, Compare>::operator=(NuoMap&& rhs) noexcept
+NuoMap<Key, T, Compare>& NuoMap<Key, T, Compare>::operator=(NuoMap&& rhs)
+  noexcept(std::is_nothrow_copy_constructible_v<Compare> &&
+           std::is_nothrow_move_assignable_v<Compare>)
 {
   tree_ = NuoMove(rhs.tree_);
   return *this;
@@ -730,7 +742,9 @@ typename NuoMap<Key, T, Compare>::iterator NuoMap<Key, T, Compare>::Erase(
 }
 
 template <typename Key, typename T, typename Compare>
-void NuoMap<Key, T, Compare>::Swap(NuoMap& rhs) noexcept
+void NuoMap<Key, T, Compare>::Swap(NuoMap& rhs)
+  noexcept(std::is_nothrow_move_constructible_v<Compare> &&
+           std::is_nothrow_move_assignable_v<Compare>)
 {
   tree_.Swap(rhs.tree_);
 }
@@ -944,7 +958,8 @@ NuoMultimap<Key, T, Compare>::NuoMultimap(const NuoMultimap& rhs)
 }
 
 template <typename Key, typename T, typename Compare>
-NuoMultimap<Key, T, Compare>::NuoMultimap(NuoMultimap&& rhs) noexcept
+NuoMultimap<Key, T, Compare>::NuoMultimap(NuoMultimap&& rhs)
+  noexcept(std::is_nothrow_copy_constructible_v<Compare>)
   : tree_(NuoMove(rhs.tree_))
 {
 }
@@ -962,7 +977,9 @@ NuoMultimap<Key, T, Compare>& NuoMultimap<Key, T, Compare>::operator=(
 
 template <typename Key, typename T, typename Compare>
 NuoMultimap<Key, T, Compare>& NuoMultimap<Key, T, Compare>::operator=(
-  NuoMultimap&& rhs) noexcept
+  NuoMultimap&& rhs)
+  noexcept(std::is_nothrow_copy_constructible_v<Compare> &&
+           std::is_nothrow_move_assignable_v<Compare>)
 {
   tree_ = NuoMove(rhs.tree_);
   return *this;
@@ -1169,7 +1186,9 @@ NuoMultimap<Key, T, Compare>::Erase(const_iterator first, const_iterator last)
 }
 
 template <typename Key, typename T, typename Compare>
-void NuoMultimap<Key, T, Compare>::Swap(NuoMultimap& rhs) noexcept
+void NuoMultimap<Key, T, Compare>::Swap(NuoMultimap& rhs)
+  noexcept(std::is_nothrow_move_constructible_v<Compare> &&
+           std::is_nothrow_move_assignable_v<Compare>)
 {
   tree_.Swap(rhs.tree_);
 }
@@ -1363,7 +1382,9 @@ bool operator>=(const NuoMap<Key, T, Compare>& lhs,
 }
 
 template <typename Key, typename T, typename Compare>
-void swap(NuoMap<Key, T, Compare>& lhs, NuoMap<Key, T, Compare>& rhs) noexcept
+void swap(NuoMap<Key, T, Compare>& lhs, NuoMap<Key, T, Compare>& rhs)
+  noexcept(std::is_nothrow_move_constructible_v<Compare> &&
+           std::is_nothrow_move_assignable_v<Compare>)
 {
   lhs.Swap(rhs);
 }
@@ -1415,7 +1436,9 @@ bool operator>=(const NuoMultimap<Key, T, Compare>& lhs,
 
 template <typename Key, typename T, typename Compare>
 void swap(NuoMultimap<Key, T, Compare>& lhs,
-          NuoMultimap<Key, T, Compare>& rhs) noexcept
+          NuoMultimap<Key, T, Compare>& rhs)
+  noexcept(std::is_nothrow_move_constructible_v<Compare> &&
+           std::is_nothrow_move_assignable_v<Compare>)
 {
   lhs.Swap(rhs);
 }
