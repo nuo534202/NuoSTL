@@ -17,8 +17,8 @@ include_directories(
 )
 
 # test source
-file(GLOB_RECURSE TEST_SRC ${PROJECT_SOURCE_DIR}/src/*.cpp)
-file(GLOB_RECURSE SRC ${PROJECT_SOURCE_DIR}/../src/*.cpp)
+file(GLOB_RECURSE TEST_SRC CONFIGURE_DEPENDS ${PROJECT_SOURCE_DIR}/src/*.cpp)
+file(GLOB_RECURSE SRC CONFIGURE_DEPENDS ${PROJECT_SOURCE_DIR}/../src/*.cpp)
 
 add_executable(test ${TEST_SRC} ${SRC})
 

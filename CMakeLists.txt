@@ -18,7 +18,7 @@ add_compile_options(-Wall)
 include_directories(${PROJECT_SOURCE_DIR}/include)
 
 # Get the source code
-file(GLOB_RECURSE SRC ${PROJECT_SOURCE_DIR}/src/**/*.cpp)
+file(GLOB_RECURSE SRC CONFIGURE_DEPENDS ${PROJECT_SOURCE_DIR}/src/**/*.cpp)
 
 add_library(NuoSTLLib SHARED ${SRC})
 
