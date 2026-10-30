@@ -26,6 +26,7 @@ private:
   static void test_insert_and_emplace();
   static void test_erase_and_clear();
   static void test_lookup();
+  static void test_equivalent_range_contiguity();
   static void test_bucket_and_hash_policy();
   static void test_swap_and_merge();
   static void test_custom_hash_and_move_only();

@@ -5,7 +5,9 @@
 #include <stdexcept>
 #include <string>
 
+#include "core/assoc_cont/unordered_test_helpers.hpp"
 #include "nuostl.hpp"
+#include "test_framework.hpp"
 
 namespace
 {
@@ -695,6 +697,119 @@ void TestNuoUnorderedMultimap::test_lookup()
   assert(range.second == map.End());
 }
 
+void TestNuoUnorderedMultimap::test_equivalent_range_contiguity()
+{
+  typedef nuostl::NuoUnorderedMultimap<int, std::string, ModuloHash> Map;
+
+  Map map;
+  map.Emplace(2, "first");
+  map.Emplace(2, "second");
+  map.Emplace(12, "different");
+  map.Emplace(2, "third");
+
+  NUO_TEST_CHECK(map.Size() == 4);
+  NUO_TEST_CHECK(map.Count(2) == 3);
+  NUO_TEST_CHECK(map.Bucket(2) == map.Bucket(12));
+
+  size_t index = map.Bucket(2);
+  detail::EquivalentRunResult run = detail::InspectEquivalentRun(
+      map, index,
+      [](const Map::value_type& value)
+      {
+        return value.first == 2;
+      });
+  NUO_TEST_CHECK(run.is_contiguous);
+  NUO_TEST_CHECK(run.match_count == 3);
+
+  size_t equivalent_count = 0;
+  size_t different_count = 0;
+  for (Map::local_iterator it = map.Begin(index); it != map.End(index); ++it)
+  {
+    if (it->first == 2)
+    {
+      ++equivalent_count;
+    }
+    else
+    {
+      NUO_TEST_CHECK(it->first == 12);
+      ++different_count;
+    }
+  }
+  NUO_TEST_CHECK(equivalent_count == 3);
+  NUO_TEST_CHECK(different_count == 1);
+
+  nuostl::nuo_pair<Map::iterator, Map::iterator> range = map.EqualRange(2);
+  size_t count = 0;
+  for (Map::iterator it = range.first; it != range.second; ++it)
+  {
+    NUO_TEST_CHECK(it->first == 2);
+    ++count;
+  }
+  NUO_TEST_CHECK(count == 3);
+
+  const Map& ref = map;
+  nuostl::nuo_pair<Map::const_iterator, Map::const_iterator> const_range =
+      ref.EqualRange(2);
+  count = 0;
+  for (Map::const_iterator it = const_range.first;
+       it != const_range.second; ++it)
+  {
+    NUO_TEST_CHECK(it->first == 2);
+    ++count;
+  }
+  NUO_TEST_CHECK(count == 3);
+
+  Map head_map;
+  head_map.Emplace(12, "different");
+  head_map.Emplace(2, "first");
+  head_map.Emplace(2, "second");
+  head_map.Emplace(2, "third");
+  NUO_TEST_CHECK(head_map.Count(2) == 3);
+  NUO_TEST_CHECK(head_map.Bucket(2) == head_map.Bucket(12));
+  NUO_TEST_CHECK(detail::EqualRangeCount(head_map, 2) == 3);
+  index = head_map.Bucket(2);
+  run = detail::InspectEquivalentRun(
+      head_map, index,
+      [](const Map::value_type& value)
+      {
+        return value.first == 2;
+      });
+  NUO_TEST_CHECK(run.is_contiguous);
+  NUO_TEST_CHECK(run.match_count == 3);
+
+  head_map.Rehash(2 * head_map.BucketCount());
+  NUO_TEST_CHECK(head_map.Count(2) == 3);
+  NUO_TEST_CHECK(head_map.Bucket(2) == head_map.Bucket(12));
+  NUO_TEST_CHECK(detail::EqualRangeCount(head_map, 2) == 3);
+  index = head_map.Bucket(2);
+  run = detail::InspectEquivalentRun(
+      head_map, index,
+      [](const Map::value_type& value)
+      {
+        return value.first == 2;
+      });
+  NUO_TEST_CHECK(run.is_contiguous);
+  NUO_TEST_CHECK(run.match_count == 3);
+
+  Map source;
+  source.Emplace(2, "fourth");
+  source.Emplace(12, "other");
+  head_map.Merge(source);
+  NUO_TEST_CHECK(head_map.Count(2) == 4);
+  NUO_TEST_CHECK(head_map.Bucket(2) == head_map.Bucket(12));
+  NUO_TEST_CHECK(detail::EqualRangeCount(head_map, 2) == 4);
+  index = head_map.Bucket(2);
+  run = detail::InspectEquivalentRun(
+      head_map, index,
+      [](const Map::value_type& value)
+      {
+        return value.first == 2;
+      });
+  NUO_TEST_CHECK(run.is_contiguous);
+  NUO_TEST_CHECK(run.match_count == 4);
+  NUO_TEST_CHECK(source.Empty());
+}
+
 void TestNuoUnorderedMultimap::test_bucket_and_hash_policy()
 {
   typedef nuostl::NuoUnorderedMultimap<int, std::string, ModuloHash> Map;
@@ -806,6 +921,7 @@ void TestNuoUnorderedMultimap::test_nuo_unordered_multimap()
   test_insert_and_emplace();
   test_erase_and_clear();
   test_lookup();
+  test_equivalent_range_contiguity();
   test_bucket_and_hash_policy();
   test_swap_and_merge();
   test_custom_hash_and_move_only();

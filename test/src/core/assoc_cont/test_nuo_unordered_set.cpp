@@ -5,7 +5,9 @@
 #include <stdexcept>
 #include <string>
 
+#include "core/assoc_cont/unordered_test_helpers.hpp"
 #include "nuostl.hpp"
+#include "test_framework.hpp"
 
 namespace
 {
@@ -660,6 +662,119 @@ void TestNuoUnorderedMultiset::test_lookup()
   assert(range.second == set.End());
 }
 
+void TestNuoUnorderedMultiset::test_equivalent_range_contiguity()
+{
+  typedef nuostl::NuoUnorderedMultiset<int, ModuloHash> Set;
+
+  Set set;
+  set.Insert(2);
+  set.Insert(2);
+  set.Insert(12);
+  set.Insert(2);
+
+  NUO_TEST_CHECK(set.Size() == 4);
+  NUO_TEST_CHECK(set.Count(2) == 3);
+  NUO_TEST_CHECK(set.Bucket(2) == set.Bucket(12));
+
+  size_t index = set.Bucket(2);
+  detail::EquivalentRunResult run = detail::InspectEquivalentRun(
+      set, index,
+      [](int value)
+      {
+        return value == 2;
+      });
+  NUO_TEST_CHECK(run.is_contiguous);
+  NUO_TEST_CHECK(run.match_count == 3);
+
+  size_t equivalent_count = 0;
+  size_t different_count = 0;
+  for (Set::local_iterator it = set.Begin(index); it != set.End(index); ++it)
+  {
+    if (*it == 2)
+    {
+      ++equivalent_count;
+    }
+    else
+    {
+      NUO_TEST_CHECK(*it == 12);
+      ++different_count;
+    }
+  }
+  NUO_TEST_CHECK(equivalent_count == 3);
+  NUO_TEST_CHECK(different_count == 1);
+
+  nuostl::nuo_pair<Set::iterator, Set::iterator> range = set.EqualRange(2);
+  size_t count = 0;
+  for (Set::iterator it = range.first; it != range.second; ++it)
+  {
+    NUO_TEST_CHECK(*it == 2);
+    ++count;
+  }
+  NUO_TEST_CHECK(count == 3);
+
+  const Set& ref = set;
+  nuostl::nuo_pair<Set::const_iterator, Set::const_iterator> const_range =
+      ref.EqualRange(2);
+  count = 0;
+  for (Set::const_iterator it = const_range.first;
+       it != const_range.second; ++it)
+  {
+    NUO_TEST_CHECK(*it == 2);
+    ++count;
+  }
+  NUO_TEST_CHECK(count == 3);
+
+  Set head_set;
+  head_set.Insert(12);
+  head_set.Insert(2);
+  head_set.Insert(2);
+  head_set.Insert(2);
+  NUO_TEST_CHECK(head_set.Count(2) == 3);
+  NUO_TEST_CHECK(head_set.Bucket(2) == head_set.Bucket(12));
+  NUO_TEST_CHECK(detail::EqualRangeCount(head_set, 2) == 3);
+  index = head_set.Bucket(2);
+  run = detail::InspectEquivalentRun(
+      head_set, index,
+      [](int value)
+      {
+        return value == 2;
+      });
+  NUO_TEST_CHECK(run.is_contiguous);
+  NUO_TEST_CHECK(run.match_count == 3);
+
+  head_set.Rehash(2 * head_set.BucketCount());
+  NUO_TEST_CHECK(head_set.Count(2) == 3);
+  NUO_TEST_CHECK(head_set.Bucket(2) == head_set.Bucket(12));
+  NUO_TEST_CHECK(detail::EqualRangeCount(head_set, 2) == 3);
+  index = head_set.Bucket(2);
+  run = detail::InspectEquivalentRun(
+      head_set, index,
+      [](int value)
+      {
+        return value == 2;
+      });
+  NUO_TEST_CHECK(run.is_contiguous);
+  NUO_TEST_CHECK(run.match_count == 3);
+
+  Set source;
+  source.Insert(2);
+  source.Insert(12);
+  head_set.Merge(source);
+  NUO_TEST_CHECK(head_set.Count(2) == 4);
+  NUO_TEST_CHECK(head_set.Bucket(2) == head_set.Bucket(12));
+  NUO_TEST_CHECK(detail::EqualRangeCount(head_set, 2) == 4);
+  index = head_set.Bucket(2);
+  run = detail::InspectEquivalentRun(
+      head_set, index,
+      [](int value)
+      {
+        return value == 2;
+      });
+  NUO_TEST_CHECK(run.is_contiguous);
+  NUO_TEST_CHECK(run.match_count == 4);
+  NUO_TEST_CHECK(source.Empty());
+}
+
 void TestNuoUnorderedMultiset::test_bucket_and_hash_policy()
 {
   typedef nuostl::NuoUnorderedMultiset<int, ModuloHash> Set;
@@ -768,6 +883,7 @@ void TestNuoUnorderedMultiset::test_nuo_unordered_multiset()
   test_insert_and_emplace();
   test_erase_and_clear();
   test_lookup();
+  test_equivalent_range_contiguity();
   test_bucket_and_hash_policy();
   test_swap_and_merge();
   test_custom_hash_and_move_only();

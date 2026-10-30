@@ -2253,7 +2253,8 @@ void NuoUnorderedMultimap<Key, T, Hash, KeyEqual>::DestroyNode(node_ptr node)
   NuoAllocator<node_type>::Deallocate(node);
 }
 
-/* Keep nodes with the same key contiguous so that EqualRange is linear. */
+/* Keep equivalent keys contiguous. Insertion scans the bucket and is linear in
+ * its size. */
 template <typename Key, typename T, typename Hash, typename KeyEqual>
 void NuoUnorderedMultimap<Key, T, Hash, KeyEqual>::MultimapInsertNode(
     node_ptr node)
@@ -2266,23 +2267,29 @@ void NuoUnorderedMultimap<Key, T, Hash, KeyEqual>::MultimapInsertNode(
   }
   else
   {
-    node_ptr prev = nullptr;
     node_ptr cur = head;
     while (cur != nullptr &&
-           key_equal_(cur->value_.first, node->value_.first))
+           !key_equal_(cur->value_.first, node->value_.first))
     {
-      prev = cur;
       cur = cur->next_;
     }
-    if (prev == nullptr)
+    if (cur == nullptr)
     {
       node->next_ = head;
       buckets_[index] = node;
     }
     else
     {
+      node_ptr run_tail = cur;
+      cur = cur->next_;
+      while (cur != nullptr && key_equal_(cur->value_.first,
+                                          node->value_.first))
+      {
+        run_tail = cur;
+        cur = cur->next_;
+      }
       node->next_ = cur;
-      prev->next_ = node;
+      run_tail->next_ = node;
     }
   }
   ++size_;
@@ -2306,6 +2313,7 @@ template <typename Key, typename T, typename Hash, typename KeyEqual>
 void NuoUnorderedMultimap<Key, T, Hash, KeyEqual>::RehashInternal(
     size_type new_count)
 {
+  /* Reversing whole chains keeps contiguous equivalent-key runs intact. */
   bucket_type* new_buckets =
       NuoAllocator<bucket_type>::Allocate(new_count);
   for (size_type i = 0; i < new_count; ++i)
