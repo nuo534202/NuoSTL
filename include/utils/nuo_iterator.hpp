@@ -1,6 +1,8 @@
 #pragma once
 
 #include <stddef.h>
+#include <type_traits>
+#include <utility>
 
 #include "utils/nuo_type_traits.hpp"
 
@@ -88,7 +90,7 @@ class NuoIteratorTraits<T*>
 {
 public:
   using iterator_category = NuoRandomAccessIteratorTag;
-  using value_type        = T;
+  using value_type        = typename std::remove_cv<T>::type;
   using pointer           = T*;
   using reference         = T&;
   using difference_type   = ptrdiff_t;
@@ -277,9 +279,26 @@ public:
     : current_iter_(rhs.current_iter_)
   {
   }
+  template <typename OtherIterator,
+            typename std::enable_if<
+              std::is_convertible<OtherIterator, Iterator>::value &&
+              std::is_convertible<
+                typename NuoIteratorTraits<OtherIterator>::reference,
+                typename NuoIteratorTraits<Iterator>::reference>::value &&
+              std::is_convertible<
+                typename NuoIteratorTraits<OtherIterator>::pointer,
+                typename NuoIteratorTraits<Iterator>::pointer>::value,
+              int>::type = 0>
+  NuoReverseIterator(const NuoReverseIterator<OtherIterator>& rhs)
+    noexcept(noexcept(rhs.Base()) &&
+             std::is_nothrow_constructible_v<Iterator, OtherIterator>)
+    : current_iter_(rhs.Base())
+  {
+  }
 
 public:
   iterator_type Base() const
+    noexcept(std::is_nothrow_copy_constructible_v<iterator_type>)
   {
     return current_iter_;
   }
@@ -353,54 +372,428 @@ private:
   Iterator current_iter_; /* current forward iterator */
 };
 
-template <typename Iterator>
-typename NuoReverseIterator<Iterator>::difference_type
-operator-(const NuoReverseIterator<Iterator>& lhs,
-          const NuoReverseIterator<Iterator>& rhs)
+namespace detail
+{
+
+template <typename LeftIterator, typename RightIterator, typename = void>
+class NuoHasIteratorLeftEquality : public NuoFalseType
+{
+};
+
+template <typename LeftIterator, typename RightIterator>
+class NuoHasIteratorLeftEquality<
+    LeftIterator,
+    RightIterator,
+    std::void_t<decltype(
+      std::declval<LeftIterator>() ==
+      std::declval<RightIterator>())>>
+  : public NuoBoolConstant<std::is_convertible<
+      decltype(std::declval<LeftIterator>() ==
+               std::declval<RightIterator>()),
+      bool>::value>
+{
+};
+
+template <typename LeftIterator, typename RightIterator>
+class NuoHasIteratorRightEquality
+  : public NuoHasIteratorLeftEquality<
+      RightIterator, LeftIterator>
+{
+};
+
+template <typename LeftIterator, typename RightIterator>
+class NuoIsIteratorEqualityComparable
+  : public NuoBoolConstant<
+      NuoHasIteratorLeftEquality<
+        LeftIterator, RightIterator>::kValue ||
+      NuoHasIteratorRightEquality<
+        LeftIterator, RightIterator>::kValue>
+{
+};
+
+template <typename LeftIterator, typename RightIterator, typename = void>
+class NuoHasIteratorLeftInequality : public NuoFalseType
+{
+};
+
+template <typename LeftIterator, typename RightIterator>
+class NuoHasIteratorLeftInequality<
+    LeftIterator,
+    RightIterator,
+    std::void_t<decltype(
+      std::declval<LeftIterator>() !=
+      std::declval<RightIterator>())>>
+  : public NuoBoolConstant<std::is_convertible<
+      decltype(std::declval<LeftIterator>() !=
+               std::declval<RightIterator>()),
+      bool>::value>
+{
+};
+
+template <typename LeftIterator, typename RightIterator>
+class NuoHasIteratorRightInequality
+  : public NuoHasIteratorLeftInequality<
+      RightIterator, LeftIterator>
+{
+};
+
+template <typename LeftIterator, typename RightIterator, typename = void>
+class NuoHasIteratorLess : public NuoFalseType
+{
+};
+
+template <typename LeftIterator, typename RightIterator>
+class NuoHasIteratorLess<
+    LeftIterator,
+    RightIterator,
+    std::void_t<decltype(
+      std::declval<LeftIterator>() <
+      std::declval<RightIterator>())>>
+  : public NuoBoolConstant<std::is_convertible<
+      decltype(std::declval<LeftIterator>() <
+               std::declval<RightIterator>()),
+      bool>::value>
+{
+};
+
+template <typename LeftIterator, typename RightIterator, typename = void>
+class NuoHasIteratorGreater : public NuoFalseType
+{
+};
+
+template <typename LeftIterator, typename RightIterator>
+class NuoHasIteratorGreater<
+    LeftIterator,
+    RightIterator,
+    std::void_t<decltype(
+      std::declval<LeftIterator>() >
+      std::declval<RightIterator>())>>
+  : public NuoBoolConstant<std::is_convertible<
+      decltype(std::declval<LeftIterator>() >
+               std::declval<RightIterator>()),
+      bool>::value>
+{
+};
+
+template <typename LeftIterator, typename RightIterator, typename = void>
+class NuoHasIteratorLessEqual : public NuoFalseType
+{
+};
+
+template <typename LeftIterator, typename RightIterator, typename = void>
+class NuoHasIteratorGreaterEqual : public NuoFalseType
+{
+};
+
+template <typename LeftIterator, typename RightIterator>
+class NuoHasIteratorGreaterEqual<
+    LeftIterator,
+    RightIterator,
+    std::void_t<decltype(
+      std::declval<LeftIterator>() >=
+      std::declval<RightIterator>())>>
+  : public NuoBoolConstant<std::is_convertible<
+      decltype(std::declval<LeftIterator>() >=
+               std::declval<RightIterator>()),
+      bool>::value>
+{
+};
+
+template <typename LeftIterator, typename RightIterator>
+class NuoHasIteratorLessEqual<
+    LeftIterator,
+    RightIterator,
+    std::void_t<decltype(
+      std::declval<LeftIterator>() <=
+      std::declval<RightIterator>())>>
+  : public NuoBoolConstant<std::is_convertible<
+      decltype(std::declval<LeftIterator>() <=
+               std::declval<RightIterator>()),
+      bool>::value>
+{
+};
+
+template <typename LeftIterator, typename RightIterator>
+using NuoIteratorRightMinusLeftResult = decltype(
+  std::declval<RightIterator>() - std::declval<LeftIterator>());
+
+template <typename LeftIterator, typename RightIterator, typename = void>
+class NuoIsIteratorDifferenceAvailable : public NuoFalseType
+{
+};
+
+template <typename LeftIterator, typename RightIterator>
+class NuoIsIteratorDifferenceAvailable<
+    LeftIterator,
+    RightIterator,
+    std::void_t<NuoIteratorRightMinusLeftResult<
+      LeftIterator, RightIterator>>>
+  /* Reject results that cannot represent a valid iterator distance. */
+  : public NuoBoolConstant<
+      !std::is_void_v<NuoIteratorRightMinusLeftResult<
+        LeftIterator, RightIterator>> &&
+      !std::is_reference_v<NuoIteratorRightMinusLeftResult<
+        LeftIterator, RightIterator>>>
+{
+};
+
+} /* namespace detail */
+
+template <typename LeftIterator, typename RightIterator,
+          typename std::enable_if<
+            detail::NuoIsIteratorDifferenceAvailable<
+              LeftIterator, RightIterator>::kValue,
+            int>::type = 0>
+/* Mirror the standard heterogeneous reverse_iterator subtraction contract. */
+decltype(std::declval<RightIterator>() -
+         std::declval<LeftIterator>())
+operator-(const NuoReverseIterator<LeftIterator>& lhs,
+          const NuoReverseIterator<RightIterator>& rhs)
+  noexcept(noexcept(rhs.Base() - lhs.Base()))
 {
   return rhs.Base() - lhs.Base();
 }
 
-template <typename Iterator>
-bool operator==(const NuoReverseIterator<Iterator>& lhs,
-                const NuoReverseIterator<Iterator>& rhs)
+template <typename LeftIterator, typename RightIterator,
+          typename std::enable_if<
+            detail::NuoHasIteratorLeftEquality<
+              LeftIterator, RightIterator>::kValue,
+            int>::type = 0>
+bool operator==(const NuoReverseIterator<LeftIterator>& lhs,
+                const NuoReverseIterator<RightIterator>& rhs)
+  noexcept(noexcept(lhs.Base() == rhs.Base()))
 {
   return lhs.Base() == rhs.Base();
 }
 
-template <typename Iterator>
-bool operator!=(const NuoReverseIterator<Iterator>& lhs,
-                const NuoReverseIterator<Iterator>& rhs)
+template <typename LeftIterator, typename RightIterator,
+          typename std::enable_if<
+            !detail::NuoIsIteratorEqualityComparable<
+              LeftIterator, RightIterator>::kValue &&
+            detail::NuoHasIteratorLeftInequality<
+              LeftIterator, RightIterator>::kValue,
+            int>::type = 0>
+bool operator==(const NuoReverseIterator<LeftIterator>& lhs,
+                const NuoReverseIterator<RightIterator>& rhs)
+  noexcept(noexcept(lhs.Base() != rhs.Base()))
+{
+  return !(lhs.Base() != rhs.Base());
+}
+
+template <typename LeftIterator, typename RightIterator,
+          typename std::enable_if<
+            !detail::NuoIsIteratorEqualityComparable<
+              LeftIterator, RightIterator>::kValue &&
+            !detail::NuoHasIteratorLeftInequality<
+              LeftIterator, RightIterator>::kValue &&
+            detail::NuoHasIteratorRightInequality<
+              LeftIterator, RightIterator>::kValue,
+            int>::type = 0>
+bool operator==(const NuoReverseIterator<LeftIterator>& lhs,
+                const NuoReverseIterator<RightIterator>& rhs)
+  noexcept(noexcept(rhs.Base() != lhs.Base()))
+{
+  return !(rhs.Base() != lhs.Base());
+}
+
+template <typename LeftIterator, typename RightIterator,
+          typename std::enable_if<
+            detail::NuoHasIteratorLeftInequality<
+              LeftIterator, RightIterator>::kValue,
+            int>::type = 0>
+bool operator!=(const NuoReverseIterator<LeftIterator>& lhs,
+                const NuoReverseIterator<RightIterator>& rhs)
+  noexcept(noexcept(lhs.Base() != rhs.Base()))
 {
   return lhs.Base() != rhs.Base();
 }
 
-template <typename Iterator>
-bool operator<(const NuoReverseIterator<Iterator>& lhs,
-               const NuoReverseIterator<Iterator>& rhs)
+template <typename LeftIterator, typename RightIterator,
+          typename std::enable_if<
+            !detail::NuoHasIteratorLeftInequality<
+              LeftIterator, RightIterator>::kValue &&
+            detail::NuoHasIteratorRightInequality<
+              LeftIterator, RightIterator>::kValue,
+            int>::type = 0>
+bool operator!=(const NuoReverseIterator<LeftIterator>& lhs,
+                const NuoReverseIterator<RightIterator>& rhs)
+  noexcept(noexcept(rhs.Base() != lhs.Base()))
+{
+  return rhs.Base() != lhs.Base();
+}
+
+/* C++20 rewrites != expressions, while relational directions remain
+   distinct. Strict comparisons require a strict base comparison. */
+template <typename LeftIterator, typename RightIterator,
+          typename std::enable_if<
+            detail::NuoHasIteratorGreater<
+              LeftIterator, RightIterator>::kValue,
+            int>::type = 0>
+bool operator<(const NuoReverseIterator<LeftIterator>& lhs,
+               const NuoReverseIterator<RightIterator>& rhs)
+  noexcept(noexcept(lhs.Base() > rhs.Base()))
+{
+  return lhs.Base() > rhs.Base();
+}
+
+template <typename LeftIterator, typename RightIterator,
+          typename std::enable_if<
+            !detail::NuoHasIteratorGreater<
+              LeftIterator, RightIterator>::kValue &&
+            detail::NuoHasIteratorLess<
+              RightIterator, LeftIterator>::kValue,
+            int>::type = 0>
+bool operator<(const NuoReverseIterator<LeftIterator>& lhs,
+               const NuoReverseIterator<RightIterator>& rhs)
+  noexcept(noexcept(rhs.Base() < lhs.Base()))
 {
   return rhs.Base() < lhs.Base();
 }
 
-template <typename Iterator>
-bool operator>(const NuoReverseIterator<Iterator>& lhs,
-               const NuoReverseIterator<Iterator>& rhs)
+template <typename LeftIterator, typename RightIterator,
+          typename std::enable_if<
+            detail::NuoHasIteratorLess<
+              LeftIterator, RightIterator>::kValue,
+            int>::type = 0>
+bool operator>(const NuoReverseIterator<LeftIterator>& lhs,
+               const NuoReverseIterator<RightIterator>& rhs)
+  noexcept(noexcept(lhs.Base() < rhs.Base()))
 {
   return lhs.Base() < rhs.Base();
 }
 
-template <typename Iterator>
-bool operator<=(const NuoReverseIterator<Iterator>& lhs,
-                const NuoReverseIterator<Iterator>& rhs)
+template <typename LeftIterator, typename RightIterator,
+          typename std::enable_if<
+            !detail::NuoHasIteratorLess<
+              LeftIterator, RightIterator>::kValue &&
+            detail::NuoHasIteratorGreater<
+              RightIterator, LeftIterator>::kValue,
+            int>::type = 0>
+bool operator>(const NuoReverseIterator<LeftIterator>& lhs,
+               const NuoReverseIterator<RightIterator>& rhs)
+  noexcept(noexcept(rhs.Base() > lhs.Base()))
 {
-  return !(rhs < lhs);
+  return rhs.Base() > lhs.Base();
 }
 
-template <typename Iterator>
-bool operator>=(const NuoReverseIterator<Iterator>& lhs,
-                const NuoReverseIterator<Iterator>& rhs)
+template <typename LeftIterator, typename RightIterator,
+          typename std::enable_if<
+            detail::NuoHasIteratorGreaterEqual<
+              LeftIterator, RightIterator>::kValue,
+            int>::type = 0>
+bool operator<=(const NuoReverseIterator<LeftIterator>& lhs,
+                const NuoReverseIterator<RightIterator>& rhs)
+  noexcept(noexcept(lhs.Base() >= rhs.Base()))
 {
-  return !(lhs < rhs);
+  return lhs.Base() >= rhs.Base();
+}
+
+template <typename LeftIterator, typename RightIterator,
+          typename std::enable_if<
+            !detail::NuoHasIteratorGreaterEqual<
+              LeftIterator, RightIterator>::kValue &&
+            detail::NuoHasIteratorLessEqual<
+              RightIterator, LeftIterator>::kValue,
+            int>::type = 0>
+bool operator<=(const NuoReverseIterator<LeftIterator>& lhs,
+                const NuoReverseIterator<RightIterator>& rhs)
+  noexcept(noexcept(rhs.Base() <= lhs.Base()))
+{
+  return rhs.Base() <= lhs.Base();
+}
+
+template <typename LeftIterator, typename RightIterator,
+          typename std::enable_if<
+            !detail::NuoHasIteratorGreaterEqual<
+              LeftIterator, RightIterator>::kValue &&
+            !detail::NuoHasIteratorLessEqual<
+              RightIterator, LeftIterator>::kValue &&
+            detail::NuoHasIteratorLess<
+              LeftIterator, RightIterator>::kValue,
+            int>::type = 0>
+bool operator<=(const NuoReverseIterator<LeftIterator>& lhs,
+                const NuoReverseIterator<RightIterator>& rhs)
+  noexcept(noexcept(lhs.Base() < rhs.Base()))
+{
+  return !(lhs.Base() < rhs.Base());
+}
+
+template <typename LeftIterator, typename RightIterator,
+          typename std::enable_if<
+            !detail::NuoHasIteratorGreaterEqual<
+              LeftIterator, RightIterator>::kValue &&
+            !detail::NuoHasIteratorLessEqual<
+              RightIterator, LeftIterator>::kValue &&
+            !detail::NuoHasIteratorLess<
+              LeftIterator, RightIterator>::kValue &&
+            detail::NuoHasIteratorGreater<
+              RightIterator, LeftIterator>::kValue,
+            int>::type = 0>
+bool operator<=(const NuoReverseIterator<LeftIterator>& lhs,
+                const NuoReverseIterator<RightIterator>& rhs)
+  noexcept(noexcept(rhs.Base() > lhs.Base()))
+{
+  return !(rhs.Base() > lhs.Base());
+}
+
+template <typename LeftIterator, typename RightIterator,
+          typename std::enable_if<
+            detail::NuoHasIteratorLessEqual<
+              LeftIterator, RightIterator>::kValue,
+            int>::type = 0>
+bool operator>=(const NuoReverseIterator<LeftIterator>& lhs,
+                const NuoReverseIterator<RightIterator>& rhs)
+  noexcept(noexcept(lhs.Base() <= rhs.Base()))
+{
+  return lhs.Base() <= rhs.Base();
+}
+
+template <typename LeftIterator, typename RightIterator,
+          typename std::enable_if<
+            !detail::NuoHasIteratorLessEqual<
+              LeftIterator, RightIterator>::kValue &&
+            detail::NuoHasIteratorGreaterEqual<
+              RightIterator, LeftIterator>::kValue,
+            int>::type = 0>
+bool operator>=(const NuoReverseIterator<LeftIterator>& lhs,
+                const NuoReverseIterator<RightIterator>& rhs)
+  noexcept(noexcept(rhs.Base() >= lhs.Base()))
+{
+  return rhs.Base() >= lhs.Base();
+}
+
+template <typename LeftIterator, typename RightIterator,
+          typename std::enable_if<
+            !detail::NuoHasIteratorLessEqual<
+              LeftIterator, RightIterator>::kValue &&
+            !detail::NuoHasIteratorGreaterEqual<
+              RightIterator, LeftIterator>::kValue &&
+            detail::NuoHasIteratorLess<
+              RightIterator, LeftIterator>::kValue,
+            int>::type = 0>
+bool operator>=(const NuoReverseIterator<LeftIterator>& lhs,
+                const NuoReverseIterator<RightIterator>& rhs)
+  noexcept(noexcept(rhs.Base() < lhs.Base()))
+{
+  return !(rhs.Base() < lhs.Base());
+}
+
+template <typename LeftIterator, typename RightIterator,
+          typename std::enable_if<
+            !detail::NuoHasIteratorLessEqual<
+              LeftIterator, RightIterator>::kValue &&
+            !detail::NuoHasIteratorGreaterEqual<
+              RightIterator, LeftIterator>::kValue &&
+            !detail::NuoHasIteratorLess<
+              RightIterator, LeftIterator>::kValue &&
+            detail::NuoHasIteratorGreater<
+              LeftIterator, RightIterator>::kValue,
+            int>::type = 0>
+bool operator>=(const NuoReverseIterator<LeftIterator>& lhs,
+                const NuoReverseIterator<RightIterator>& rhs)
+  noexcept(noexcept(lhs.Base() > rhs.Base()))
+{
+  return !(lhs.Base() > rhs.Base());
 }
 
 } /* namespace nuostl */

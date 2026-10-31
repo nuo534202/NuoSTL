@@ -1,6 +1,7 @@
 #pragma once
 
 #include <initializer_list>
+#include <type_traits>
 
 #include "utils/nuo_allocator.hpp"
 #include "utils/nuo_exceptdef.hpp"
@@ -47,8 +48,8 @@ public:
     return static_cast<base_ptr>(&(*this));
   }
 
-  base_ptr prev_;
-  base_ptr next_;
+  base_ptr prev_ = this;
+  base_ptr next_ = this;
 };
 
 template <typename T>
@@ -59,12 +60,12 @@ public:
   using node_ptr = typename NuoNodeTraits<T>::node_ptr;
 
   NuoListNode() = default;
-  NuoListNode(const T& value)
-    : value_(value)
-  {
-  }
-  NuoListNode(T&& value)
-    : value_(NuoMove(value))
+  template <typename... Args>
+    requires (sizeof...(Args) > 0) &&
+      (!std::is_same_v<std::remove_cvref_t<Args>, NuoListNode> && ...) &&
+      std::is_constructible_v<T, Args...>
+  explicit NuoListNode(Args&& ...args)
+    : value_(NuoForward<Args>(args)...)
   {
   }
 
@@ -101,7 +102,7 @@ public:
   {
   }
   NuoListIterator(node_ptr node)
-    : node_(node->to_base())
+    : node_(node->ToBase())
   {
   }
   NuoListIterator(const NuoListIterator& iterator)
@@ -178,7 +179,11 @@ public:
   {
   }
   NuoListConstIterator(node_ptr node)
-    : node_(node->to_base())
+    : node_(node->ToBase())
+  {
+  }
+  NuoListConstIterator(const NuoListIterator<T>& iterator)
+    : node_(iterator.node_)
   {
   }
   NuoListConstIterator(const NuoListConstIterator& iterator)
@@ -235,6 +240,34 @@ public:
   base_ptr node_;
 };
 
+template <typename T>
+bool operator==(const NuoListIterator<T>& lhs,
+                const NuoListConstIterator<T>& rhs) noexcept
+{
+  return lhs.node_ == rhs.node_;
+}
+
+template <typename T>
+bool operator!=(const NuoListIterator<T>& lhs,
+                const NuoListConstIterator<T>& rhs) noexcept
+{
+  return !(lhs == rhs);
+}
+
+template <typename T>
+bool operator==(const NuoListConstIterator<T>& lhs,
+                const NuoListIterator<T>& rhs) noexcept
+{
+  return lhs.node_ == rhs.node_;
+}
+
+template <typename T>
+bool operator!=(const NuoListConstIterator<T>& lhs,
+                const NuoListIterator<T>& rhs) noexcept
+{
+  return !(lhs == rhs);
+}
+
 /****************************************************/
 /* List */
 template <typename T>
@@ -244,7 +277,6 @@ public:
   /* types */
   using allocator_type          = NuoAllocator<T>;
   using data_allocator          = NuoAllocator<T>;
-  using base_allocator          = NuoAllocator<NuoListNodeBase<T>>;
   using node_allocator          = NuoAllocator<NuoListNode<T>>;
 
   using value_type              = allocator_type::value_type;
@@ -265,14 +297,17 @@ public:
 
 public:
   /* construct / copy / destroy */
-  NuoList() : NuoList(0) {};
+  NuoList()
+  {
+    InitEmpty();
+  }
   explicit NuoList(size_type n) : NuoList(n, value_type()) {};
   NuoList(size_type n, const T& value);
   template <typename InputIter, typename std::enable_if<
-    NuoIsInputIterator<InputIter>::value, bool>::type = false>
+    NuoIsInputIterator<InputIter>::kValue, bool>::type = false>
   NuoList(InputIter first, InputIter last);
   NuoList(const NuoList& nlist);
-  NuoList(NuoList&& nlist);
+  NuoList(NuoList&& nlist) noexcept;
   NuoList(std::initializer_list<T> ilist);
   ~NuoList();
 
@@ -281,7 +316,7 @@ public:
   NuoList& operator=(NuoList&& nlist) noexcept;
   NuoList& operator=(std::initializer_list<T> ilist);
   template <typename InputIter, typename std::enable_if<
-    NuoIsInputIterator<InputIter>::value, bool>::type = false>
+    NuoIsInputIterator<InputIter>::kValue, bool>::type = false>
   void Assign(InputIter first, InputIter last);
   void Assign(size_type n, const value_type& value);
   void Assign(std::initializer_list<T> ilist);
@@ -334,7 +369,7 @@ public:
                   size_type n,
                   const value_type& value);
   template <typename InputIter, typename std::enable_if<
-    NuoIsInputIterator<InputIter>::value, bool>::type = false>
+    NuoIsInputIterator<InputIter>::kValue, bool>::type = false>
   iterator Insert(const_iterator position, InputIter first, InputIter last);
   iterator Insert(const_iterator position, std::initializer_list<T> ilist);
 
@@ -379,10 +414,40 @@ public:
 
 private:
   /* helper functions */
-  node_ptr CreateNode(const value_type& value);
+  /* Requires the list to own no nodes. */
+  void InitEmpty() noexcept;
+  template <typename... Args>
+  node_ptr CreateNode(Args&& ...args);
   void DestroyNode(node_ptr node);
-  void AddNodeToFront(base_ptr node);
-  void AddNodeToBack(base_ptr node);
+  void EnsureCanAppend(size_type count) const;
+  void EnsureCanAppendAnother(size_type already_added) const;
+  base_ptr BuildDetachedChain(size_type count,
+                              const value_type& value,
+                              base_ptr& chain_last,
+                              size_type& added);
+  template <typename InputIter, typename std::enable_if<
+    NuoIsInputIterator<InputIter>::kValue, bool>::type = false>
+  base_ptr BuildDetachedRange(InputIter first,
+                              InputIter last,
+                              base_ptr& chain_last,
+                              size_type& count);
+  void AppendDetachedNode(base_ptr& first, base_ptr& last, node_ptr node);
+  void DestroyDetachedChain(base_ptr first) noexcept;
+  /* Requires position to be outside the detached chain. */
+  void LinkDetachedChainBefore(base_ptr position,
+                               base_ptr first,
+                               base_ptr last) noexcept;
+  static void RelinkSentinel(base_ptr sentinel,
+                             base_ptr first,
+                             base_ptr last,
+                             bool was_empty) noexcept;
+  iterator InsertDetachedChain(base_ptr position,
+                               base_ptr first,
+                               base_ptr last,
+                               size_type count);
+  void AddNodeToFront(base_ptr node) noexcept;
+  void AddNodeToBack(base_ptr node) noexcept;
+  void LinkNodeBefore(base_ptr node, base_ptr position) noexcept;
   void AddLinkNodeToBack(base_ptr first, base_ptr last);
   void RemoveLinkedNode(base_ptr first, base_ptr last);
   void UnlinkNodes(base_ptr first, base_ptr last);
@@ -403,13 +468,14 @@ private:
                      Compare comp);
 
 private:
-  base_ptr  tail_;  /* circular linked list, no need head ptr */
+  NuoListNodeBase<T> sentinel_;
+  base_ptr tail_;  /* points to the embedded sentinel */
   size_type size_;
 };
 
 #if defined(__cpp_deduction_guides) && __cpp_deduction_guides >= 201703L
 template <class InputIter,
-          typename std::enable_if<NuoIsInputIterator<InputIter>::value,
+          typename std::enable_if<NuoIsInputIterator<InputIter>::kValue,
                                   int>::type = 0>
 NuoList(InputIter, InputIter)
   -> NuoList<typename NuoIteratorTraits<InputIter>::value_type>;
@@ -427,7 +493,7 @@ NuoList<T>::NuoList(size_type n, const T& value)
 
 template <typename T>
 template <typename InputIter, typename std::enable_if<
-  NuoIsInputIterator<InputIter>::value, bool>::type>
+  NuoIsInputIterator<InputIter>::kValue, bool>::type>
 NuoList<T>::NuoList(InputIter first, InputIter last)
 {
   CopyInit(first, last);
@@ -440,12 +506,21 @@ NuoList<T>::NuoList(const NuoList& nlist)
 }
 
 template <typename T>
-NuoList<T>::NuoList(NuoList&& nlist)
-  : tail_(NuoMove(nlist.tail_))
-  , size_(NuoMove(nlist.size_))
+NuoList<T>::NuoList(NuoList&& nlist) noexcept
 {
-  nlist.tail_ = nullptr;
-  nlist.tail_ = 0;
+  if (nlist.Empty())
+  {
+    InitEmpty();
+    return;
+  }
+
+  size_ = nlist.size_;
+  sentinel_.next_ = nlist.tail_->next_;
+  sentinel_.prev_ = nlist.tail_->prev_;
+  sentinel_.next_->prev_ = &sentinel_;
+  sentinel_.prev_->next_ = &sentinel_;
+  tail_ = &sentinel_;
+  nlist.InitEmpty();
 }
 
 template <typename T>
@@ -457,13 +532,7 @@ NuoList<T>::NuoList(std::initializer_list<T> ilist)
 template <typename T>
 NuoList<T>::~NuoList()
 {
-  if (tail_ != nullptr)
-  {
-    Clear();
-    base_allocator::Deallocate(tail_);
-    tail_ = nullptr;
-    size_ = 0;
-  }
+  Clear();
 }
 
 /* assign */
@@ -501,7 +570,7 @@ NuoList<T>::operator=(std::initializer_list<T> ilist)
 
 template <typename T>
 template <typename InputIter, typename std::enable_if<
-  NuoIsInputIterator<InputIter>::value, bool>::type>
+  NuoIsInputIterator<InputIter>::kValue, bool>::type>
 void
 NuoList<T>::Assign(InputIter first, InputIter last)
 {
@@ -693,8 +762,7 @@ template <typename... Args>
 typename NuoList<T>::reference
 NuoList<T>::EmplaceFront(Args&& ...args)
 {
-  NUO_THROW_LENGTH_ERROR_IF(size_ > MaxSize() - 1,
-    "NuoList<T> size is too large!");
+  EnsureCanAppend(1);
 
   node_ptr node = CreateNode(NuoForward<Args>(args)...);
   AddNodeToFront(node->ToBase());
@@ -707,11 +775,10 @@ template <typename... Args>
 typename NuoList<T>::reference
 NuoList<T>::EmplaceBack(Args&& ...args)
 {
-  NUO_THROW_LENGTH_ERROR_IF(size_ > MaxSize() - 1,
-    "NuoList<T> size is too large!");
+  EnsureCanAppend(1);
 
   node_ptr node = CreateNode(NuoForward<Args>(args)...);
-  AddNodeToFront(node->ToBase());
+  AddNodeToBack(node->ToBase());
 
   return Back();
 }
@@ -720,8 +787,7 @@ template <typename T>
 void
 NuoList<T>::PushFront(const value_type& value)
 {
-  NUO_THROW_LENGTH_ERROR_IF(size_ > MaxSize() - 1,
-    "NuoList<T> size is too large!");
+  EnsureCanAppend(1);
 
   node_ptr node = CreateNode(value);
   AddNodeToFront(node->ToBase());
@@ -731,8 +797,7 @@ template <typename T>
 void
 NuoList<T>::PushFront(value_type&& value)
 {
-  NUO_THROW_LENGTH_ERROR_IF(size_ > MaxSize() - 1,
-    "NuoList<T> size is too large!");
+  EnsureCanAppend(1);
 
   node_ptr node = CreateNode(NuoMove(value));
   AddNodeToFront(node->ToBase());
@@ -752,8 +817,7 @@ template <typename T>
 void
 NuoList<T>::PushBack(const value_type& value)
 {
-  NUO_THROW_LENGTH_ERROR_IF(size_ > MaxSize() - 1,
-    "NuoList<T> size is too large!");
+  EnsureCanAppend(1);
 
   node_ptr node = CreateNode(value);
   AddNodeToBack(node->ToBase());
@@ -763,8 +827,7 @@ template <typename T>
 void
 NuoList<T>::PushBack(value_type&& value)
 {
-  NUO_THROW_LENGTH_ERROR_IF(size_ > MaxSize() - 1,
-    "NuoList<T> size is too large!");
+  EnsureCanAppend(1);
 
   node_ptr node = CreateNode(NuoMove(value));
   AddNodeToBack(node->ToBase());
@@ -785,13 +848,12 @@ template <typename... Args>
 typename NuoList<T>::iterator
 NuoList<T>::Emplace(const_iterator position, Args&& ...args)
 {
-  base_ptr pos_node = position.node_;
-  base_ptr node = CreateNode(NuoForward<Args>(args)...);
+  EnsureCanAppend(1);
 
-  node->prev_ = pos_node;
-  node->next_ = pos_node->next_;
-  pos_node->next_->prev_ = node;
-  pos_node->next_ = node;
+  base_ptr pos_node = position.node_;
+  node_ptr node = CreateNode(NuoForward<Args>(args)...);
+  LinkNodeBefore(node->ToBase(), pos_node);
+  ++size_;
 
   return iterator(node);
 }
@@ -817,46 +879,32 @@ NuoList<T>::Insert(const_iterator position,
                    const value_type& value)
 {
   base_ptr pos_node = position.node_;
-  while (n--)
-  {
-    base_ptr node = CreateNode(value);
-    node->prev_ = pos_node;
-    node->next_ = pos_node->next_;
-    pos_node->next_->prev_ = node;
-    pos_node->next_ = node;
-  }
-  
-  return (position + 1);
+  base_ptr chain_last = nullptr;
+  size_type added = 0;
+  base_ptr first_inserted =
+      BuildDetachedChain(n, value, chain_last, added);
+  return InsertDetachedChain(pos_node, first_inserted, chain_last, added);
 }
 
 template <typename T>
 template <typename InputIter, typename std::enable_if<
-  NuoIsInputIterator<InputIter>::value, bool>::type>
+  NuoIsInputIterator<InputIter>::kValue, bool>::type>
 typename NuoList<T>::iterator
 NuoList<T>::Insert(const_iterator position, InputIter first, InputIter last)
 {
-  base_ptr prev_node = position.node_;
-  base_ptr next_node = prev_node->next_;
-
-  for (InputIter it = first; it != last; it++)
-  {
-    base_ptr node = CreateNode(*it);
-
-    node->prev_ = prev_node;
-    node->next_ = next_node;
-    prev_node->next_ = next_node->prev_ = node;
-
-    prev_node = node;
-  }
-
-  return position.node_->next_;
+  base_ptr pos_node = position.node_;
+  base_ptr chain_last = nullptr;
+  size_type added = 0;
+  base_ptr first_inserted =
+      BuildDetachedRange(first, last, chain_last, added);
+  return InsertDetachedChain(pos_node, first_inserted, chain_last, added);
 }
 
 template <typename T>
 typename NuoList<T>::iterator
 NuoList<T>::Insert(const_iterator position, std::initializer_list<T> ilist)
 {
-  return Insert(ilist.begin(), ilist.end());
+  return Insert(position, ilist.begin(), ilist.end());
 }
 
 template <typename T>
@@ -882,10 +930,38 @@ NuoList<T>::Erase(const_iterator first, const_iterator last)
 
 template <typename T>
 void
+NuoList<T>::RelinkSentinel(base_ptr sentinel,
+                           base_ptr first,
+                           base_ptr last,
+                           bool was_empty) noexcept
+{
+  if (was_empty)
+  {
+    sentinel->Unlink();
+  }
+  else
+  {
+    sentinel->next_ = first;
+    sentinel->prev_ = last;
+    first->prev_ = sentinel;
+    last->next_ = sentinel;
+  }
+}
+
+template <typename T>
+void
 NuoList<T>::Swap(NuoList& nlist) noexcept
 {
-  NuoSwap(tail_, nlist.tail_);
+  const bool lhs_was_empty = tail_->next_ == tail_;
+  const bool rhs_was_empty = nlist.tail_->next_ == nlist.tail_;
+  base_ptr lhs_first = tail_->next_;
+  base_ptr lhs_last = tail_->prev_;
+  base_ptr rhs_first = nlist.tail_->next_;
+  base_ptr rhs_last = nlist.tail_->prev_;
   NuoSwap(size_, nlist.size_);
+
+  RelinkSentinel(&sentinel_, rhs_first, rhs_last, rhs_was_empty);
+  RelinkSentinel(&nlist.sentinel_, lhs_first, lhs_last, lhs_was_empty);
 }
 
 template <typename T>
@@ -899,8 +975,7 @@ NuoList<T>::Clear() noexcept
     cur = next;
   }
 
-  tail_->Unlink();
-  size_ = 0;
+  InitEmpty();
 }
 
 /* list operations */
@@ -909,28 +984,43 @@ template <typename T>
 void
 NuoList<T>::Splice(const_iterator position, NuoList& nlist)
 {
-  Splice(position, nlist, Begin(), End());
+  if (this == &nlist || nlist.Empty())
+    return;
+
+  EnsureCanAppend(nlist.size_);
+
+  base_ptr position_node = position.node_;
+  base_ptr first_node = nlist.tail_->next_;
+  base_ptr last_node = nlist.tail_->prev_;
+  nlist.tail_->Unlink();
+  LinkDetachedChainBefore(position_node, first_node, last_node);
+  size_ += nlist.size_;
+  nlist.size_ = 0;
 }
 
 template <typename T>
 void
 NuoList<T>::Splice(const_iterator position, NuoList&& nlist)
 {
-  Splice(position, NuoMove(nlist), Begin(), End());
+  Splice(position, nlist);
 }
 
 template <typename T>
 void
 NuoList<T>::Splice(const_iterator position, NuoList& nlist, const_iterator i)
 {
-  Splice(position, nlist, i, i + 1);
+  const_iterator last = i;
+  ++last;
+  Splice(position, nlist, i, last);
 }
 
 template <typename T>
 void
 NuoList<T>::Splice(const_iterator position, NuoList&& nlist, const_iterator i)
 {
-  Splice(position, NuoMove(nlist), i, i + 1);
+  const_iterator last = i;
+  ++last;
+  Splice(position, nlist, i, last);
 }
 
 template <typename T>
@@ -940,26 +1030,46 @@ NuoList<T>::Splice(const_iterator position,
                    const_iterator first,
                    const_iterator last)
 {
-  if (first == last || this == &nlist)
+  if (first == last)
     return;
 
-  NUO_THROW_LENGTH_ERROR_IF(size_ + NuoDistance(first, last) > MaxSize(),
-    "NuoList<T> size is too large!");
+  size_type range_size = 0;
+  base_ptr position_node = position.node_;
+  base_ptr first_node = first.node_;
+  base_ptr last_node = last.node_;
+  base_ptr range_last = last_node->prev_;
 
-  iterator prev_pos = position->node_->prev;
-  iterator next_pos = position->node_;
+  if (position_node == first_node || position_node == last_node)
+    return;
 
-  iterator first_pos = first->node_;
-  iterator last_pos = last->node_;
+  if (this == &nlist)
+  {
+    /* Treat an overlapping range as a no-op to preserve list integrity. */
+    if (position_node != tail_)
+    {
+      for (const_iterator it = first; it != last; ++it)
+      {
+        if (it.node_ == position_node)
+          return;
+      }
+    }
+  }
+  else
+  {
+    range_size = static_cast<size_type>(NuoDistance(first, last));
+    EnsureCanAppend(range_size);
+  }
 
-  first_pos->prev_->next_ = last->next_;
-  last_pos->next_->prev_ = first->prev_;
+  first_node->prev_->next_ = last_node;
+  last_node->prev_ = first_node->prev_;
 
-  first_pos->prev_ = prev_pos;
-  last_pos->next = next_pos;
+  LinkDetachedChainBefore(position_node, first_node, range_last);
 
-  prev_pos->next_ = first_pos;
-  next_pos->prev_ = last_pos;
+  if (this != &nlist)
+  {
+    size_ += range_size;
+    nlist.size_ -= range_size;
+  }
 }
 
 template <typename T>
@@ -969,7 +1079,7 @@ NuoList<T>::Splice(const_iterator position,
                    const_iterator first,
                    const_iterator last)
 {
-  Splice(position, NuoMove(nlist), first, last);
+  Splice(position, nlist, first, last);
 }
 
 template <typename T>
@@ -1124,13 +1234,23 @@ void NuoList<T>::Reverse() noexcept
 /* Add node to the back of the list */
 
 template <typename T>
+void
+NuoList<T>::InitEmpty() noexcept
+{
+  sentinel_.Unlink();
+  tail_ = &sentinel_;
+  size_ = 0;
+}
+
+template <typename T>
+template <typename... Args>
 typename NuoList<T>::node_ptr
-NuoList<T>::CreateNode(const value_type& value)
+NuoList<T>::CreateNode(Args&& ...args)
 {
   node_ptr node = node_allocator::Allocate();
   try
   {
-    node_allocator::Construct(node, value);
+    node_allocator::Construct(node, NuoForward<Args>(args)...);
   }
   catch (...)
   {
@@ -1150,23 +1270,159 @@ NuoList<T>::DestroyNode(node_ptr node)
 
 template <typename T>
 void
-NuoList<T>::AddNodeToFront(base_ptr node)
+NuoList<T>::EnsureCanAppend(size_type count) const
 {
-  node->prev_ = tail_, node->next_ = tail_->next_;
-  tail_->next_->prev_ = node;
-  tail_->next_ = node;
-  size_++;
+  NUO_THROW_LENGTH_ERROR_IF(count > MaxSize() - size_,
+    "NuoList<T> size is too large!");
 }
 
 template <typename T>
 void
-NuoList<T>::AddNodeToBack(base_ptr node)
+NuoList<T>::EnsureCanAppendAnother(size_type already_added) const
 {
-  node->prev_ = tail_->prev_;
-  node->next_ = tail_;
-  tail_->prev_->next_ = node;
-  tail_->prev_ = node;
-  size_++;
+  /* The separate overflow guard avoids incrementing an all-ones value. */
+  NUO_THROW_LENGTH_ERROR_IF(already_added == MaxSize(),
+    "NuoList<T> size is too large!");
+  EnsureCanAppend(already_added + 1);
+}
+
+template <typename T>
+typename NuoList<T>::base_ptr
+NuoList<T>::BuildDetachedChain(size_type count,
+                               const value_type& value,
+                               base_ptr& chain_last,
+                               size_type& added)
+{
+  base_ptr chain_first = nullptr;
+  chain_last = nullptr;
+  added = 0;
+  EnsureCanAppend(count);
+  try
+  {
+    while (added < count)
+    {
+      node_ptr node = CreateNode(value);
+      AppendDetachedNode(chain_first, chain_last, node);
+      ++added;
+    }
+  }
+  catch (...)
+  {
+    DestroyDetachedChain(chain_first);
+    throw;
+  }
+  return chain_first;
+}
+
+template <typename T>
+template <typename InputIter, typename std::enable_if<
+  NuoIsInputIterator<InputIter>::kValue, bool>::type>
+typename NuoList<T>::base_ptr
+NuoList<T>::BuildDetachedRange(InputIter first,
+                               InputIter last,
+                               base_ptr& chain_last,
+                               size_type& count)
+{
+  base_ptr chain_first = nullptr;
+  chain_last = nullptr;
+  count = 0;
+  try
+  {
+    while (first != last)
+    {
+      EnsureCanAppendAnother(count);
+      node_ptr node = CreateNode(*first);
+      AppendDetachedNode(chain_first, chain_last, node);
+      ++count;
+      ++first;
+    }
+  }
+  catch (...)
+  {
+    DestroyDetachedChain(chain_first);
+    throw;
+  }
+  return chain_first;
+}
+
+template <typename T>
+void
+NuoList<T>::AppendDetachedNode(base_ptr& first, base_ptr& last, node_ptr node)
+{
+  base_ptr base_node = node->ToBase();
+  base_node->prev_ = last;
+  base_node->next_ = nullptr;
+  if (last != nullptr)
+  {
+    last->next_ = base_node;
+  }
+  else
+  {
+    first = base_node;
+  }
+  last = base_node;
+}
+
+template <typename T>
+void
+NuoList<T>::DestroyDetachedChain(base_ptr first) noexcept
+{
+  while (first != nullptr)
+  {
+    base_ptr next = first->next_;
+    DestroyNode(first->ToNode());
+    first = next;
+  }
+}
+
+template <typename T>
+void
+NuoList<T>::LinkDetachedChainBefore(base_ptr position,
+                                    base_ptr first,
+                                    base_ptr last) noexcept
+{
+  first->prev_ = position->prev_;
+  last->next_ = position;
+  position->prev_->next_ = first;
+  position->prev_ = last;
+}
+
+template <typename T>
+typename NuoList<T>::iterator
+NuoList<T>::InsertDetachedChain(base_ptr position,
+                                base_ptr first,
+                                base_ptr last,
+                                size_type count)
+{
+  if (first != nullptr)
+  {
+    LinkDetachedChainBefore(position, first, last);
+    size_ += count;
+  }
+  return iterator(first != nullptr ? first : position);
+}
+
+template <typename T>
+void
+NuoList<T>::AddNodeToFront(base_ptr node) noexcept
+{
+  LinkNodeBefore(node, tail_->next_);
+  ++size_;
+}
+
+template <typename T>
+void
+NuoList<T>::AddNodeToBack(base_ptr node) noexcept
+{
+  LinkNodeBefore(node, tail_);
+  ++size_;
+}
+
+template <typename T>
+void
+NuoList<T>::LinkNodeBefore(base_ptr node, base_ptr position) noexcept
+{
+  LinkDetachedChainBefore(position, node, node);
 }
 
 /* Add link node [first, last] to the back of the list */
@@ -1215,9 +1471,7 @@ NuoList<T>::FillInit(size_type n, const value_type& value)
 {
   NUO_THROW_OUT_OF_RANGE_IF(n < 0, "out of range: n must be a natural number!");
 
-  tail_ = base_allocator::Allocate();
-  tail_->Unlink();
-  size_ = 0;
+  InitEmpty();
 
   try
   {
@@ -1231,8 +1485,6 @@ NuoList<T>::FillInit(size_type n, const value_type& value)
   catch(...)
   {
     Clear();
-    base_allocator::Deallocate(tail_);
-    tail_ = nullptr, size_ = 0;
     throw;
   }
 }
@@ -1243,9 +1495,7 @@ template <typename InputIter, typename std::enable_if<
 void
 NuoList<T>::CopyInit(InputIter first, InputIter last)
 {
-  tail_ = base_allocator::Allocate();
-  tail_->Unlink();
-  size_ = 0;
+  InitEmpty();
 
   try
   {
@@ -1258,10 +1508,8 @@ NuoList<T>::CopyInit(InputIter first, InputIter last)
   catch(...)
   {
     Clear();
-    base_allocator::Deallocate(tail_);
-    tail_ = nullptr, size_ = 0;
     throw;
-  } 
+  }
 }
 
 template <typename T>
