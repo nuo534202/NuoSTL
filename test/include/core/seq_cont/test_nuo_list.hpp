@@ -14,7 +14,9 @@ private:
   static void test_insert_overloads();
   static void test_range_construction_and_assign();
   static void test_push_pop();
-  static void test_insert_erase();
+  static void test_erase();
+  static void test_remove_and_unique();
+  static void test_resize();
   static void test_splice_and_move();
   static void test_clear_and_swap();
   static void TestResourceLifetime();

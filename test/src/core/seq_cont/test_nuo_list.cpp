@@ -27,16 +27,33 @@ struct BidirectionalListValue
   static inline int copies_before_throw = -1;
 
   BidirectionalListValue();
+  explicit BidirectionalListValue(int initial_value);
   BidirectionalListValue(const BidirectionalListValue& other);
   ~BidirectionalListValue();
+
+  bool operator==(const BidirectionalListValue& other) const
+  {
+    return value == other.value;
+  }
+
+  int value;
 };
 
 BidirectionalListValue::BidirectionalListValue()
+  : value(0)
 {
   ++live_count;
 }
 
-BidirectionalListValue::BidirectionalListValue(const BidirectionalListValue&)
+BidirectionalListValue::BidirectionalListValue(int initial_value)
+  : value(initial_value)
+{
+  ++live_count;
+}
+
+BidirectionalListValue::BidirectionalListValue(
+    const BidirectionalListValue& other)
+  : value(other.value)
 {
   if (copies_before_throw == 0)
   {
@@ -87,6 +104,24 @@ struct MultiArgumentValue
 
   int value;
   std::string label;
+};
+
+struct EqualityDrivenValue
+{
+  explicit EqualityDrivenValue(int initial_value)
+    : value(initial_value)
+  {
+  }
+
+  bool operator==(const EqualityDrivenValue& other) const
+  {
+    return value == other.value;
+  }
+
+  /* Reject implementations that compare with operator!=. */
+  bool operator!=(const EqualityDrivenValue&) const = delete;
+
+  int value;
 };
 
 class CopiesBeforeThrowGuard
@@ -146,9 +181,10 @@ void CheckIteratorValue(Iterator iterator, Iterator end, const Value& expected)
 constexpr std::array<int, 2> kSourceValues = {6, 7};
 
 template <typename Operation>
-void ExpectListInsertFailure(nuostl::NuoList<BidirectionalListValue>& list,
-                             int copies_before_failure,
-                             Operation&& operation)
+void ExpectListModificationFailure(
+    nuostl::NuoList<BidirectionalListValue>& list,
+    int copies_before_failure,
+    Operation&& operation)
 {
   const auto size_before = list.Size();
   const int live_before = BidirectionalListValue::live_count;
@@ -243,7 +279,7 @@ void TestNuoList::TestResourceLifetime()
     NUO_TEST_CHECK(BidirectionalListValue::live_count == 5);
     BidirectionalListValue::copies_before_throw = -1;
 
-    ExpectListInsertFailure(list, 1, [&]()
+    ExpectListModificationFailure(list, 1, [&]()
     {
       list.Insert(list.Cbegin(), 3, value);
     });
@@ -252,12 +288,12 @@ void TestNuoList::TestResourceLifetime()
     List range_source(3, value);
     NUO_TEST_CHECK(BidirectionalListValue::live_count ==
                    live_before_range_source + 3);
-    ExpectListInsertFailure(list, 1, [&]()
+    ExpectListModificationFailure(list, 1, [&]()
     {
       list.Insert(list.Begin(), range_source.Begin(), range_source.End());
     });
 
-    ExpectListInsertFailure(list, 0, [&]()
+    ExpectListModificationFailure(list, 0, [&]()
     {
       list.Insert(list.Cbegin(), value);
     });
@@ -268,13 +304,18 @@ void TestNuoList::TestResourceLifetime()
     SinglePassInputIterator<BidirectionalListValue> input_last(
         input_values.data() + input_values.size());
     auto operation_token = std::make_unique<int>(0);
-    ExpectListInsertFailure(
+    ExpectListModificationFailure(
         list, 1,
         [&, token = nuostl::NuoMove(operation_token)]() mutable
         {
           NUO_TEST_CHECK(*token == 0);
           list.Insert(list.Cbegin(), input_first, input_last);
         });
+
+    ExpectListModificationFailure(list, 1, [&]()
+    {
+      list.Resize(list.Size() + 2, value);
+    });
 
     int forward_count = 0;
     for (List::const_iterator it = list.Cbegin(); it != list.Cend(); ++it)
@@ -646,26 +687,263 @@ void TestNuoList::test_push_pop()
   NUO_TEST_CHECK(l1.Empty());
 }
 
-void TestNuoList::test_insert_erase()
+void TestNuoList::test_erase()
 {
-  /* use push/pop to cover insertion/erasure semantics */
-  nuostl::NuoList<int> l1;
+  nuostl::NuoList<int> head_erase{1, 2, 3};
+  auto head_result = head_erase.Erase(head_erase.Cbegin());
+  CheckIteratorValue(head_result, head_erase.End(), 2);
+  NUO_TEST_CHECK(ListValues(head_erase) == (std::vector<int>{2, 3}));
+  NUO_TEST_CHECK(head_erase.Size() == 2);
 
-  l1.PushBack(3);
-  l1.PushFront(2);
-  l1.PushFront(1);
-  NUO_TEST_CHECK(l1.Size() == 3);
-  NUO_TEST_CHECK(l1.Front() == 1);
-  NUO_TEST_CHECK(l1.Back() == 3);
+  nuostl::NuoList<int> middle_erase{1, 2, 3};
+  auto middle = middle_erase.Cbegin();
+  ++middle;
+  auto middle_result = middle_erase.Erase(middle);
+  CheckIteratorValue(middle_result, middle_erase.End(), 3);
+  NUO_TEST_CHECK(ListValues(middle_erase) == (std::vector<int>{1, 3}));
+  NUO_TEST_CHECK(middle_erase.Size() == 2);
 
-  l1.PopFront();
-  NUO_TEST_CHECK(l1.Size() == 2);
-  NUO_TEST_CHECK(l1.Front() == 2);
+  nuostl::NuoList<int> tail_erase{1, 2, 3};
+  auto tail = tail_erase.Cbegin();
+  ++tail;
+  ++tail;
+  auto tail_result = tail_erase.Erase(tail);
+  NUO_TEST_CHECK(tail_result == tail_erase.End());
+  NUO_TEST_CHECK(ListValues(tail_erase) == (std::vector<int>{1, 2}));
+  NUO_TEST_CHECK(tail_erase.Size() == 2);
 
-  l1.PopBack();
-  NUO_TEST_CHECK(l1.Size() == 1);
-  NUO_TEST_CHECK(l1.Front() == 2);
-  NUO_TEST_CHECK(l1.Back() == 2);
+  nuostl::NuoList<int> only_element{4};
+  auto only_result = only_element.Erase(only_element.Cbegin());
+  NUO_TEST_CHECK(only_result == only_element.End());
+  NUO_TEST_CHECK(only_element.Empty());
+  NUO_TEST_CHECK(only_element.Size() == 0);
+
+  nuostl::NuoList<int> head_range{1, 2, 3, 4};
+  auto head_last = head_range.Cbegin();
+  ++head_last;
+  ++head_last;
+  auto head_range_result = head_range.Erase(head_range.Cbegin(), head_last);
+  CheckIteratorValue(head_range_result, head_range.End(), 3);
+  NUO_TEST_CHECK(ListValues(head_range) == (std::vector<int>{3, 4}));
+  NUO_TEST_CHECK(head_range.Size() == 2);
+
+  nuostl::NuoList<int> middle_range{1, 2, 3, 4};
+  auto middle_first = middle_range.Cbegin();
+  ++middle_first;
+  auto middle_last = middle_first;
+  ++middle_last;
+  ++middle_last;
+  auto middle_range_result =
+      middle_range.Erase(middle_first, middle_last);
+  CheckIteratorValue(middle_range_result, middle_range.End(), 4);
+  NUO_TEST_CHECK(ListValues(middle_range) ==
+                (std::vector<int>{1, 4}));
+  NUO_TEST_CHECK(middle_range.Size() == 2);
+
+  nuostl::NuoList<int> empty_range{1, 2, 3};
+  auto empty_position = empty_range.Cbegin();
+  ++empty_position;
+  const int* const empty_position_address = &*empty_position;
+  auto empty_range_result =
+      empty_range.Erase(empty_position, empty_position);
+  NUO_TEST_CHECK(empty_range_result != empty_range.End());
+  if (empty_range_result != empty_range.End())
+  {
+    NUO_TEST_CHECK(&*empty_range_result == empty_position_address);
+  }
+  NUO_TEST_CHECK(ListValues(empty_range) ==
+                (std::vector<int>{1, 2, 3}));
+  NUO_TEST_CHECK(empty_range.Size() == 3);
+
+  nuostl::NuoList<int> full_range{1, 2, 3};
+  auto full_range_result = full_range.Erase(full_range.Cbegin(),
+                                            full_range.Cend());
+  NUO_TEST_CHECK(full_range_result == full_range.End());
+  NUO_TEST_CHECK(full_range.Empty());
+  NUO_TEST_CHECK(full_range.Size() == 0);
+
+  const int live_before = BidirectionalListValue::live_count;
+  {
+    nuostl::NuoList<BidirectionalListValue> tracked;
+    tracked.EmplaceBack();
+    tracked.EmplaceBack();
+    NUO_TEST_CHECK(BidirectionalListValue::live_count == live_before + 2);
+    auto tracked_last = tracked.Cbegin();
+    ++tracked_last;
+    tracked.Erase(tracked.Cbegin(), tracked_last);
+    NUO_TEST_CHECK(BidirectionalListValue::live_count == live_before + 1);
+    NUO_TEST_CHECK(tracked.Size() == 1);
+
+    auto tracked_next = tracked.Erase(tracked.Cbegin());
+    NUO_TEST_CHECK(BidirectionalListValue::live_count == live_before);
+    NUO_TEST_CHECK(tracked.Empty());
+    NUO_TEST_CHECK(tracked_next == tracked.End());
+  }
+  NUO_TEST_CHECK(BidirectionalListValue::live_count == live_before);
+}
+
+void TestNuoList::test_remove_and_unique()
+{
+  nuostl::NuoList<int> removed{1, 2, 2, 3, 2};
+  NUO_TEST_CHECK(removed.Remove(2) == 3);
+  NUO_TEST_CHECK(ListValues(removed) == (std::vector<int>{1, 3}));
+  NUO_TEST_CHECK(removed.Size() == 2);
+
+  nuostl::NuoList<int> filtered{1, 2, 3, 4, 5, 6};
+  auto is_even = [](int value)
+  {
+    return value % 2 == 0;
+  };
+  NUO_TEST_CHECK(filtered.RemoveIf(is_even) == 3);
+  NUO_TEST_CHECK(ListValues(filtered) == (std::vector<int>{1, 3, 5}));
+  NUO_TEST_CHECK(filtered.Size() == 3);
+
+  nuostl::NuoList<int> unmatched{1, 3};
+  NUO_TEST_CHECK(unmatched.Remove(2) == 0);
+  NUO_TEST_CHECK(ListValues(unmatched) == (std::vector<int>{1, 3}));
+  NUO_TEST_CHECK(unmatched.Size() == 2);
+
+  nuostl::NuoList<int> aliased_value{1, 2, 1, 2, 3};
+  auto aliased_iter = aliased_value.Begin();
+  ++aliased_iter;
+  int& aliased_element = *aliased_iter;
+  NUO_TEST_CHECK(aliased_value.Remove(aliased_element) == 2);
+  NUO_TEST_CHECK(ListValues(aliased_value) ==
+                (std::vector<int>{1, 1, 3}));
+  NUO_TEST_CHECK(aliased_value.Size() == 3);
+
+  nuostl::NuoList<int> repeated{1, 1, 2, 2, 2, 3, 1, 1};
+  NUO_TEST_CHECK(repeated.Unique() == 4);
+  NUO_TEST_CHECK(ListValues(repeated) ==
+                (std::vector<int>{1, 2, 3, 1}));
+  NUO_TEST_CHECK(repeated.Size() == 4);
+
+  nuostl::NuoList<EqualityDrivenValue> equality_driven;
+  equality_driven.EmplaceBack(1);
+  equality_driven.EmplaceBack(2);
+  equality_driven.EmplaceBack(2);
+  NUO_TEST_CHECK(equality_driven.Remove(EqualityDrivenValue(2)) == 2);
+  NUO_TEST_CHECK(equality_driven.Size() == 1);
+  NUO_TEST_CHECK(equality_driven.Front().value == 1);
+
+  const int live_before = BidirectionalListValue::live_count;
+  {
+    nuostl::NuoList<BidirectionalListValue> tracked;
+    tracked.EmplaceBack(1);
+    tracked.EmplaceBack(2);
+    tracked.EmplaceBack(2);
+    tracked.EmplaceBack(3);
+    BidirectionalListValue needle(2);
+    NUO_TEST_CHECK(BidirectionalListValue::live_count ==
+                   live_before + 5);
+    NUO_TEST_CHECK(tracked.Remove(needle) == 2);
+    NUO_TEST_CHECK(BidirectionalListValue::live_count ==
+                   live_before + 3);
+    NUO_TEST_CHECK(tracked.Size() == 2);
+    NUO_TEST_CHECK(tracked.Front().value == 1);
+    NUO_TEST_CHECK(tracked.Back().value == 3);
+
+    auto all_equal = [](const BidirectionalListValue&,
+                        const BidirectionalListValue&)
+    {
+      return true;
+    };
+    NUO_TEST_CHECK(tracked.Unique(all_equal) == 1);
+    NUO_TEST_CHECK(BidirectionalListValue::live_count ==
+                   live_before + 2);
+    NUO_TEST_CHECK(tracked.Size() == 1);
+    NUO_TEST_CHECK(tracked.Front().value == 1);
+  }
+  NUO_TEST_CHECK(BidirectionalListValue::live_count == live_before);
+
+  nuostl::NuoList<int> custom_repeated{1, 2, 4, 8};
+  auto doubles_to_next = [](int previous, int current)
+  {
+    return previous * 2 == current;
+  };
+  NUO_TEST_CHECK(custom_repeated.Unique(doubles_to_next) == 2);
+  NUO_TEST_CHECK(ListValues(custom_repeated) ==
+                (std::vector<int>{1, 4}));
+  NUO_TEST_CHECK(custom_repeated.Size() == 2);
+
+  nuostl::NuoList<int> empty;
+  NUO_TEST_CHECK(empty.Remove(1) == 0);
+  NUO_TEST_CHECK(empty.Unique() == 0);
+  NUO_TEST_CHECK(empty.Empty());
+
+  nuostl::NuoList<int> single{1};
+  NUO_TEST_CHECK(single.Unique() == 0);
+  NUO_TEST_CHECK(single.Size() == 1);
+  NUO_TEST_CHECK(single.Front() == 1);
+}
+
+void TestNuoList::test_resize()
+{
+  nuostl::NuoList<int> resized{1, 2, 3};
+  const int* const first_value = &*resized.Cbegin();
+  auto third = resized.Cbegin();
+  ++third;
+  ++third;
+  const int* const last_value = &*third;
+  resized.Resize(5, 9);
+  NUO_TEST_CHECK(ListValues(resized) ==
+                (std::vector<int>{1, 2, 3, 9, 9}));
+  NUO_TEST_CHECK(resized.Size() == 5);
+  NUO_TEST_CHECK(&*resized.Begin() == first_value);
+  auto resized_third = resized.Cbegin();
+  ++resized_third;
+  ++resized_third;
+  NUO_TEST_CHECK(&*resized_third == last_value);
+
+  resized.Resize(3, 0);
+  NUO_TEST_CHECK(ListValues(resized) == (std::vector<int>{1, 2, 3}));
+  NUO_TEST_CHECK(resized.Size() == 3);
+  NUO_TEST_CHECK(&*resized.Begin() == first_value);
+  auto retained_third = resized.Cbegin();
+  ++retained_third;
+  ++retained_third;
+  NUO_TEST_CHECK(&*retained_third == last_value);
+
+  resized.Resize(3, 7);
+  NUO_TEST_CHECK(ListValues(resized) == (std::vector<int>{1, 2, 3}));
+  NUO_TEST_CHECK(resized.Size() == 3);
+
+  resized.Resize(0);
+  NUO_TEST_CHECK(resized.Empty());
+  NUO_TEST_CHECK(resized.Size() == 0);
+  NUO_TEST_CHECK(resized.Begin() == resized.End());
+
+  resized.Resize(2);
+  NUO_TEST_CHECK(ListValues(resized) == (std::vector<int>{0, 0}));
+  NUO_TEST_CHECK(resized.Size() == 2);
+
+  resized.Resize(4, 5);
+  NUO_TEST_CHECK(ListValues(resized) ==
+                (std::vector<int>{0, 0, 5, 5}));
+  NUO_TEST_CHECK(resized.Size() == 4);
+
+  const int live_before = BidirectionalListValue::live_count;
+  {
+    nuostl::NuoList<BidirectionalListValue> tracked;
+    tracked.EmplaceBack(1);
+    tracked.EmplaceBack(2);
+    tracked.EmplaceBack(1);
+    tracked.EmplaceBack(2);
+    NUO_TEST_CHECK(BidirectionalListValue::live_count == live_before + 4);
+
+    tracked.Resize(2, tracked.Front());
+    NUO_TEST_CHECK(BidirectionalListValue::live_count == live_before + 2);
+    NUO_TEST_CHECK(tracked.Size() == 2);
+    NUO_TEST_CHECK(tracked.Front().value == 1);
+    NUO_TEST_CHECK(tracked.Back().value == 2);
+
+    tracked.Resize(4, tracked.Front());
+    NUO_TEST_CHECK(BidirectionalListValue::live_count == live_before + 4);
+    NUO_TEST_CHECK(tracked.Size() == 4);
+    NUO_TEST_CHECK(tracked.Front().value == 1);
+    NUO_TEST_CHECK(tracked.Back().value == 1);
+  }
+  NUO_TEST_CHECK(BidirectionalListValue::live_count == live_before);
 }
 
 void TestNuoList::test_splice_and_move()
@@ -973,7 +1251,9 @@ void TestNuoList::test_nuo_list()
   test_insert_overloads();
   test_range_construction_and_assign();
   test_push_pop();
-  test_insert_erase();
+  test_erase();
+  test_remove_and_unique();
+  test_resize();
   test_splice_and_move();
   test_clear_and_swap();
 }

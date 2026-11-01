@@ -3,6 +3,7 @@
 #include <initializer_list>
 #include <type_traits>
 
+#include "core/memory/nuo_addressof.hpp"
 #include "utils/nuo_allocator.hpp"
 #include "utils/nuo_exceptdef.hpp"
 #include "utils/nuo_functional.hpp"
@@ -431,6 +432,8 @@ private:
                               InputIter last,
                               base_ptr& chain_last,
                               size_type& count);
+  template <typename Predicate>
+  size_type RemoveIfImpl(Predicate pred);
   void AppendDetachedNode(base_ptr& first, base_ptr& last, node_ptr node);
   void DestroyDetachedChain(base_ptr first) noexcept;
   /* Requires position to be outside the detached chain. */
@@ -449,7 +452,8 @@ private:
   void AddNodeToBack(base_ptr node) noexcept;
   void LinkNodeBefore(base_ptr node, base_ptr position) noexcept;
   void AddLinkNodeToBack(base_ptr first, base_ptr last);
-  void RemoveLinkedNode(base_ptr first, base_ptr last);
+  /* Requires node to be an element node owned by this list. */
+  void RemoveNode(base_ptr node);
   void UnlinkNodes(base_ptr first, base_ptr last);
 
   void FillInit(size_type n, const value_type& value);
@@ -711,18 +715,20 @@ void NuoList<T>::Resize(size_type size)
 template <typename T>
 void NuoList<T>::Resize(size_type size, const value_type& value)
 {
-  base_ptr cur = Begin();
-  size_type i = 0;
-  while (cur != tail_ && i < size)
-    cur++, size++;
-
-  if (i < size_)
+  if (size < size_)
   {
-    Erase(cur, tail_);
+    iterator cur = End();
+    size_type remove_count = size_ - size;
+    while (remove_count != 0)
+    {
+      --cur;
+      --remove_count;
+    }
+    Erase(cur, End());
   }
-  else if (i > size_)
+  else if (size > size_)
   {
-    Insert(cur, value);
+    Insert(End(), size - size_, value);
   }
 }
 
@@ -807,10 +813,9 @@ template <typename T>
 void
 NuoList<T>::PopFront()
 {
+  /* Requires the list to be non-empty. */
   base_ptr front_node = tail_->next_;
-  RemoveLinkedNode(front_node, front_node);
-  DestroyNode(front_node->ToNode());
-  size_--;
+  RemoveNode(front_node);
 }
 
 template <typename T>
@@ -837,10 +842,9 @@ template <typename T>
 void
 NuoList<T>::PopBack()
 {
+  /* Requires the list to be non-empty. */
   base_ptr back_node = tail_->prev_;
-  RemoveLinkedNode(back_node, back_node);
-  DestroyNode(back_node->ToNode());
-  size_--;
+  RemoveNode(back_node);
 }
 
 template <typename T>
@@ -911,21 +915,30 @@ template <typename T>
 typename NuoList<T>::iterator
 NuoList<T>::Erase(const_iterator position)
 {
-  return Erase(position, position + 1);
+  /* Requires position to identify a dereferenceable element in this list. */
+  base_ptr next_node = position.node_->next_;
+  RemoveNode(position.node_);
+  return iterator(next_node);
 }
 
 template <typename T>
 typename NuoList<T>::iterator
 NuoList<T>::Erase(const_iterator first, const_iterator last)
 {
-  base_ptr prev_node = first.node_->prev_;
-  base_ptr next_node = last.node_->next_;
+  /* Requires [first, last) to be a valid forward range in this list. */
+  if (first == last)
+  {
+    return iterator(first.node_);
+  }
 
-  prev_node->next_ = next_node;
-  next_node->prev_ = prev_node;
-
-  for (const_iterator it = first; it != last; it++)
-    DestroyNode(it.node_->ToNode());
+  base_ptr first_node = first.node_;
+  while (first_node != last.node_)
+  {
+    base_ptr following = first_node->next_;
+    RemoveNode(first_node);
+    first_node = following;
+  }
+  return iterator(first_node);
 }
 
 template <typename T>
@@ -1086,7 +1099,29 @@ template <typename T>
 typename NuoList<T>::size_type
 NuoList<T>::Remove(const value_type& value)
 {
-  RemoveIf([&](const value_type& v){ return v == value; });
+  base_ptr aliased_node = nullptr;
+  const value_type* const value_address = NuoAddressof(value);
+  size_type removed = RemoveIfImpl(
+      [&](iterator current)
+      {
+        if (!(*current == value))
+        {
+          return false;
+        }
+        /* Defer an element aliased by value until comparisons finish. */
+        if (NuoAddressof(*current) == value_address)
+        {
+          aliased_node = current.node_;
+          return false;
+        }
+        return true;
+      });
+  if (aliased_node != nullptr)
+  {
+    Erase(const_iterator(aliased_node));
+    ++removed;
+  }
+  return removed;
 }
 
 template <typename T>
@@ -1094,12 +1129,33 @@ template <typename Predicate>
 typename NuoList<T>::size_type
 NuoList<T>::RemoveIf(Predicate pred)
 {
-  const_iterator first = Begin(), last = End();
-  for (iterator cur = first; cur != last; cur++)
+  return RemoveIfImpl(
+      [&](iterator current)
+      {
+        return pred(*current);
+      });
+}
+
+template <typename T>
+template <typename Predicate>
+typename NuoList<T>::size_type
+NuoList<T>::RemoveIfImpl(Predicate pred)
+{
+  iterator first = Begin(), last = End();
+  size_type removed = 0;
+  while (first != last)
   {
-    if (pred(*cur))
-      Erase(cur);
+    if (pred(first))
+    {
+      first = Erase(first);
+      ++removed;
+    }
+    else
+    {
+      ++first;
+    }
   }
+  return removed;
 }
 
 template <typename T>
@@ -1115,20 +1171,29 @@ typename NuoList<T>::size_type
 NuoList<T>::Unique(BinaryPredicate binary_pred)
 {
   iterator first = Begin(), last = End();
-  size_type del_count = 0;
-
-  while (first != last)
+  if (first == last)
   {
-    if (pred(*first, *(first + 1)))
-    {
-      Erase(first + 1);
-      del_count++;
-    }
-
-    first++;
+    return 0;
   }
 
-  return del_count;
+  size_type removed = 0;
+  iterator current = first;
+  iterator next = current;
+  ++next;
+  while (next != last)
+  {
+    if (binary_pred(*current, *next))
+    {
+      next = Erase(next);
+      ++removed;
+    }
+    else
+    {
+      current = next;
+      ++next;
+    }
+  }
+  return removed;
 }
 
 template <typename T>
@@ -1439,20 +1504,12 @@ NuoList<T>::AddLinkNodeToBack(base_ptr first, base_ptr last)
 
 template <typename T>
 void
-NuoList<T>::RemoveLinkedNode(base_ptr first, base_ptr last)
+NuoList<T>::RemoveNode(base_ptr node)
 {
-  size_ -= NuoDistance(first, last);
-
-  first->prev_->next_ = last->next_;
-  last->next_->prev_ = first->prev_;
-
-  UnlinkNodes(first, last);
-  for (base_ptr cur = first; cur != last;)
-  {
-    base_ptr next = cur->next_;
-    DestroyNode(cur->ToNode());
-    cur = next;
-  }
+  node->prev_->next_ = node->next_;
+  node->next_->prev_ = node->prev_;
+  --size_;
+  DestroyNode(node->ToNode());
 }
 
 template <typename T>
