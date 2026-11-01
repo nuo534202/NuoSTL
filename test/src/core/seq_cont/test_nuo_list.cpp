@@ -1,5 +1,6 @@
 #include "core/seq_cont/test_nuo_list.hpp"
 
+#include <algorithm>
 #include <array>
 #include <cstddef>
 #include <memory>
@@ -91,6 +92,11 @@ struct MoveTrackingValue
     ++moves;
   }
 
+  bool operator<(const MoveTrackingValue& other) const
+  {
+    return value < other.value;
+  }
+
   int value = 0;
 };
 
@@ -166,6 +172,17 @@ std::vector<int> ListValues(const nuostl::NuoList<int>& list)
 std::vector<int> ReverseListValues(const nuostl::NuoList<int>& list)
 {
   return RangeValues(list.Crbegin(), list.Crend());
+}
+
+std::vector<int> TrackingValues(
+    const nuostl::NuoList<MoveTrackingValue>& list)
+{
+  std::vector<int> values;
+  for (auto it = list.Cbegin(); it != list.Cend(); ++it)
+  {
+    values.push_back(it->value);
+  }
+  return values;
 }
 
 template <typename Iterator, typename Value>
@@ -1206,6 +1223,132 @@ void TestNuoList::test_splice_and_move()
   NUO_TEST_CHECK(range_source.Empty());
 }
 
+void TestNuoList::test_merge()
+{
+  nuostl::NuoList<MoveTrackingValue> target;
+  target.EmplaceBack(1);
+  target.EmplaceBack(3);
+  target.EmplaceBack(5);
+  nuostl::NuoList<MoveTrackingValue> source;
+  source.EmplaceBack(2);
+  source.EmplaceBack(4);
+  source.EmplaceBack(6);
+  MoveTrackingValue::copies = 0;
+  MoveTrackingValue::moves = 0;
+  target.Merge(nuostl::NuoMove(source));
+  NUO_TEST_CHECK(TrackingValues(target) ==
+                 (std::vector<int>{1, 2, 3, 4, 5, 6}));
+  NUO_TEST_CHECK(target.Size() == 6);
+  NUO_TEST_CHECK(source.Empty());
+  NUO_TEST_CHECK(source.Size() == 0);
+  NUO_TEST_CHECK(source.Cbegin() == source.Cend());
+  NUO_TEST_CHECK(MoveTrackingValue::copies == 0);
+  NUO_TEST_CHECK(MoveTrackingValue::moves == 0);
+
+  nuostl::NuoList<int> self_merge{1, 3, 5};
+  self_merge.Merge(self_merge);
+  NUO_TEST_CHECK(ListValues(self_merge) ==
+                 (std::vector<int>{1, 3, 5}));
+  NUO_TEST_CHECK(self_merge.Size() == 3);
+
+  nuostl::NuoList<int> self_rvalue_merge{2, 4};
+  self_rvalue_merge.Merge(nuostl::NuoMove(self_rvalue_merge));
+  NUO_TEST_CHECK(ListValues(self_rvalue_merge) ==
+                 (std::vector<int>{2, 4}));
+  NUO_TEST_CHECK(self_rvalue_merge.Size() == 2);
+
+  nuostl::NuoList<int> empty_source_target{1, 2};
+  nuostl::NuoList<int> empty_source;
+  empty_source_target.Merge(nuostl::NuoMove(empty_source));
+  NUO_TEST_CHECK(ListValues(empty_source_target) ==
+                 (std::vector<int>{1, 2}));
+  NUO_TEST_CHECK(empty_source_target.Size() == 2);
+  NUO_TEST_CHECK(empty_source.Empty());
+
+  nuostl::NuoList<int> empty_target;
+  nuostl::NuoList<int> non_empty_source{2, 4};
+  empty_target.Merge(nuostl::NuoMove(non_empty_source));
+  NUO_TEST_CHECK(ListValues(empty_target) ==
+                 (std::vector<int>{2, 4}));
+  NUO_TEST_CHECK(empty_target.Size() == 2);
+  NUO_TEST_CHECK(non_empty_source.Empty());
+  NUO_TEST_CHECK(non_empty_source.Cbegin() == non_empty_source.Cend());
+  non_empty_source.EmplaceBack(7);
+  NUO_TEST_CHECK(ListValues(non_empty_source) == std::vector<int>{7});
+
+  nuostl::NuoList<MoveTrackingValue> stable_target;
+  stable_target.EmplaceBack(1);
+  stable_target.EmplaceBack(2);
+  stable_target.EmplaceBack(4);
+  nuostl::NuoList<MoveTrackingValue> stable_source;
+  stable_source.EmplaceBack(2);
+  stable_source.EmplaceBack(3);
+  auto target_equal_iterator = stable_target.Begin();
+  ++target_equal_iterator;
+  MoveTrackingValue* target_equal = &*target_equal_iterator;
+  MoveTrackingValue* source_equal = &*stable_source.Begin();
+  stable_target.Merge(nuostl::NuoMove(stable_source));
+  NUO_TEST_CHECK(TrackingValues(stable_target) ==
+                 (std::vector<int>{1, 2, 2, 3, 4}));
+  auto merged_equal = stable_target.Begin();
+  ++merged_equal;
+  NUO_TEST_CHECK(merged_equal != stable_target.End());
+  if (merged_equal != stable_target.End())
+  {
+    NUO_TEST_CHECK(&*merged_equal == target_equal);
+    ++merged_equal;
+  }
+  NUO_TEST_CHECK(merged_equal != stable_target.End());
+  if (merged_equal != stable_target.End())
+  {
+    NUO_TEST_CHECK(&*merged_equal == source_equal);
+  }
+
+  nuostl::NuoList<int> custom_target{9, 5, 1};
+  nuostl::NuoList<int> custom_source{8, 6, 2};
+  auto greater = [](int lhs, int rhs)
+  {
+    return lhs > rhs;
+  };
+  custom_target.Merge(nuostl::NuoMove(custom_source), greater);
+  NUO_TEST_CHECK(ListValues(custom_target) ==
+                 (std::vector<int>{9, 8, 6, 5, 2, 1}));
+  NUO_TEST_CHECK(custom_target.Size() == 6);
+  NUO_TEST_CHECK(custom_source.Empty());
+
+  nuostl::NuoList<int> throwing_target{3, 4};
+  nuostl::NuoList<int> throwing_source{1, 2};
+  auto throwing_less = [](int lhs, int rhs)
+  {
+    if ((lhs == 2 && rhs == 3) || (lhs == 3 && rhs == 2))
+    {
+      throw std::runtime_error("comparison failed");
+    }
+    return lhs < rhs;
+  };
+  bool caught = false;
+  try
+  {
+    throwing_target.Merge(nuostl::NuoMove(throwing_source),
+                          throwing_less);
+  }
+  catch (const std::runtime_error&)
+  {
+    caught = true;
+  }
+  NUO_TEST_CHECK(caught);
+  NUO_TEST_CHECK(throwing_target.Size() == 3);
+  NUO_TEST_CHECK(throwing_source.Size() == 1);
+  NUO_TEST_CHECK(throwing_target.Size() + throwing_source.Size() == 4);
+  std::vector<int> combined_values = ListValues(throwing_target);
+  std::vector<int> source_values = ListValues(throwing_source);
+  combined_values.insert(combined_values.end(),
+                         source_values.begin(),
+                         source_values.end());
+  std::sort(combined_values.begin(), combined_values.end());
+  NUO_TEST_CHECK(combined_values == (std::vector<int>{1, 2, 3, 4}));
+}
+
 void TestNuoList::test_clear_and_swap()
 {
   nuostl::NuoList<int> l1{1, 2, 3};
@@ -1255,6 +1398,7 @@ void TestNuoList::test_nuo_list()
   test_remove_and_unique();
   test_resize();
   test_splice_and_move();
+  test_merge();
   test_clear_and_swap();
 }
 

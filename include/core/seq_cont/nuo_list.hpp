@@ -451,7 +451,6 @@ private:
   void AddNodeToFront(base_ptr node) noexcept;
   void AddNodeToBack(base_ptr node) noexcept;
   void LinkNodeBefore(base_ptr node, base_ptr position) noexcept;
-  void AddLinkNodeToBack(base_ptr first, base_ptr last);
   /* Requires node to be an element node owned by this list. */
   void RemoveNode(base_ptr node);
   void UnlinkNodes(base_ptr first, base_ptr last);
@@ -1222,7 +1221,7 @@ template <typename T>
 void
 NuoList<T>::Merge(NuoList&& nlist)
 {
-  Merge(NuoMove(nlist), NuoLess<T>());
+  Merge(nlist);
 }
 
 template <typename T>
@@ -1233,8 +1232,7 @@ NuoList<T>::Merge(NuoList& nlist, Compare comp)
   if (this == &nlist)
     return;
 
-  NUO_THROW_LENGTH_ERROR_IF(size_ + nlist.size_ > MaxSize(),
-    "NuoList<T> size is too large!");
+  EnsureCanAppend(nlist.size_);
 
   iterator first1 = Begin(), last1 = End();
   iterator first2 = nlist.Begin(), last2 = nlist.End();
@@ -1243,18 +1241,15 @@ NuoList<T>::Merge(NuoList& nlist, Compare comp)
   {
     if (comp(*first2, *first1))
     {
-      iterator next = first2;
-      next++;
+      iterator next2 = first2;
+      ++next2;
 
-      base_ptr next_node = first1->node_;
-      base_ptr insert_node = first2->node_;
-
+      base_ptr insert_node = first2.node_;
       UnlinkNodes(insert_node, insert_node);
-      insert_node->prev_ = next_node->prev_;
-      insert_node->next_ = next_node;
-    
-      next_node->prev_->next_ = insert_node;
-      next_node->prev_ = insert_node;
+      LinkDetachedChainBefore(first1.node_, insert_node, insert_node);
+      ++size_;
+      --nlist.size_;
+      first2 = next2;
     }
     else
     {
@@ -1264,11 +1259,13 @@ NuoList<T>::Merge(NuoList& nlist, Compare comp)
 
   if (first2 != last2)
   {
-    UnlinkNodes(first2->node_, last2->node_->prev_);
-    AddLinkNodeToBack(first2->node_, last2->node_->prev_);
+    base_ptr first_node = first2.node_;
+    base_ptr range_last = last2.node_->prev_;
+    UnlinkNodes(first_node, range_last);
+    LinkDetachedChainBefore(last1.node_, first_node, range_last);
+    size_ += nlist.size_;
+    nlist.size_ = 0;
   }
-
-  size_ += nlist.size_, nlist.size_ = 0;
 }
 
 template <typename T>
@@ -1276,7 +1273,7 @@ template <typename Compare>
 void
 NuoList<T>::Merge(NuoList&& nlist, Compare comp)
 {
-  Merge(NuoMove(nlist), comp);
+  Merge(nlist, comp);
 }
 
 template <typename T>
@@ -1488,18 +1485,6 @@ void
 NuoList<T>::LinkNodeBefore(base_ptr node, base_ptr position) noexcept
 {
   LinkDetachedChainBefore(position, node, node);
-}
-
-/* Add link node [first, last] to the back of the list */
-template <typename T>
-void
-NuoList<T>::AddLinkNodeToBack(base_ptr first, base_ptr last)
-{
-  first.prev_ = tail_.prev_;
-  last.next_ = tail_;
-  tail_.prev_.next_ = first;
-  tail_.prev_ = last;
-  size_ += NuoDistance(first, last);
 }
 
 template <typename T>
