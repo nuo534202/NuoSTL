@@ -289,6 +289,92 @@ void TestNuoForwardList::test_splice()
   l3 = nuostl::NuoMove(l1);
   assert(l3.Size() == 6);
   assert(l1.Empty());
+
+  /* Splicing a node after itself must leave the list unchanged. */
+  nuostl::NuoForwardList<int> self_splice{1, 2, 3};
+  self_splice.SpliceAfter(self_splice.Begin(),
+                         self_splice,
+                         self_splice.BeforeBegin());
+  assert(self_splice.Size() == 3);
+  nuostl::NuoForwardList<int>::iterator self_it = self_splice.Begin();
+  assert(*self_it == 1);
+  ++self_it;
+  assert(*self_it == 2);
+  ++self_it;
+  assert(*self_it == 3);
+  ++self_it;
+  assert(self_it == self_splice.End());
+
+  /* A node already following position stays in place in both overloads. */
+  nuostl::NuoForwardList<int> already_after{1, 2, 3};
+  already_after.SpliceAfter(already_after.Begin(),
+                           already_after,
+                           already_after.Begin());
+  already_after.SpliceAfter(already_after.BeforeBegin(),
+                           std::move(already_after),
+                           already_after.BeforeBegin());
+  assert(already_after.Size() == 3);
+  nuostl::NuoForwardList<int>::iterator already_it = already_after.Begin();
+  assert(*already_it == 1);
+  ++already_it;
+  assert(*already_it == 2);
+  ++already_it;
+  assert(*already_it == 3);
+  ++already_it;
+  assert(already_it == already_after.End());
+
+  /* End() resolves to the tail when the moved node is the tail. */
+  nuostl::NuoForwardList<int> tail_self_splice{1, 2, 3};
+  nuostl::NuoForwardList<int>::iterator predecessor = tail_self_splice.Begin();
+  ++predecessor;
+  tail_self_splice.SpliceAfter(tail_self_splice.End(),
+                              tail_self_splice,
+                              predecessor);
+  assert(tail_self_splice.Size() == 3);
+  nuostl::NuoForwardList<int>::iterator tail_it = tail_self_splice.Begin();
+  assert(*tail_it == 1);
+  ++tail_it;
+  assert(*tail_it == 2);
+  ++tail_it;
+  assert(*tail_it == 3);
+  ++tail_it;
+  assert(tail_it == tail_self_splice.End());
+
+  /* Moving the head to the tail must keep the size unchanged. */
+  nuostl::NuoForwardList<int> relink_self_splice{1, 2, 3};
+  relink_self_splice.SpliceAfter(relink_self_splice.End(),
+                                relink_self_splice,
+                                relink_self_splice.BeforeBegin());
+  assert(relink_self_splice.Size() == 3);
+  nuostl::NuoForwardList<int>::iterator relink_it =
+    relink_self_splice.Begin();
+  assert(*relink_it == 2);
+  ++relink_it;
+  assert(*relink_it == 3);
+  ++relink_it;
+  assert(*relink_it == 1);
+  ++relink_it;
+  assert(relink_it == relink_self_splice.End());
+
+  /* A single node can be spliced between two different lists. */
+  nuostl::NuoForwardList<int> destination{1, 2, 3};
+  nuostl::NuoForwardList<int> source{9, 8, 7};
+  destination.SpliceAfter(destination.Begin(),
+                          source,
+                          source.BeforeBegin());
+  assert(destination.Size() == 4);
+  assert(source.Size() == 2);
+  nuostl::NuoForwardList<int>::iterator destination_it = destination.Begin();
+  assert(*destination_it == 1);
+  ++destination_it;
+  assert(*destination_it == 9);
+  ++destination_it;
+  assert(*destination_it == 2);
+  ++destination_it;
+  assert(*destination_it == 3);
+  ++destination_it;
+  assert(destination_it == destination.End());
+  assert(source.Front() == 8);
 }
 
 void TestNuoForwardList::test_remove_and_unique()

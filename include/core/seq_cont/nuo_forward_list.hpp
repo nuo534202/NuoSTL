@@ -864,10 +864,16 @@ NuoForwardList<T, Allocator>::SpliceAfter(const_iterator position,
     return;
 
   node_ptr moved = i_node->next_->ToNode();
+  base_ptr pos_node = PositionNode(position);
+  /* Both adjacent positions leave the moved node in its current place. */
+  if (pos_node == moved->ToBase() || pos_node == i_node)
+  {
+    return;
+  }
+
   i_node->next_ = moved->next_;
   nflist.size_--;
 
-  base_ptr pos_node = PositionNode(position);
   moved->next_ = pos_node->next_;
   pos_node->next_ = moved->ToBase();
   size_++;
