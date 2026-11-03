@@ -905,8 +905,11 @@ NuoForwardList<T, Allocator>::SpliceAfter(const_iterator position,
                                           const_iterator first,
                                           const_iterator last)
 {
-  if (this == &nflist)
+  /* Treat equal endpoints as a no-op, matching EraseAfter. */
+  if (this == &nflist || first == last)
+  {
     return;
+  }
 
   if (first.node_ == nullptr || first.node_->next_ == nullptr)
     return;

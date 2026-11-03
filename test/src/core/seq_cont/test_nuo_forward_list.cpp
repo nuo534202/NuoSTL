@@ -2,11 +2,14 @@
 
 #include <assert.h>
 
+#include <cstddef>
+#include <initializer_list>
 #include <string>
 #include <stdexcept>
 #include <utility>
 
 #include "core/seq_cont/nuo_forward_list.hpp"
+#include "test_framework.hpp"
 
 namespace test
 {
@@ -45,6 +48,24 @@ ListLifetimeValue::ListLifetimeValue(const ListLifetimeValue&)
 ListLifetimeValue::~ListLifetimeValue()
 {
   --live_count;
+}
+
+void CheckForwardListValues(const nuostl::NuoForwardList<int>& list,
+                            std::initializer_list<int> expected)
+{
+  NUO_TEST_CHECK(list.Size() == expected.size());
+  auto current = list.Cbegin();
+  for (int value : expected)
+  {
+    NUO_TEST_CHECK(current != list.Cend());
+    if (current == list.Cend())
+    {
+      return;
+    }
+    NUO_TEST_CHECK(*current == value);
+    ++current;
+  }
+  NUO_TEST_CHECK(current == list.Cend());
 }
 
 } /* namespace */
@@ -377,6 +398,97 @@ void TestNuoForwardList::test_splice()
   assert(source.Front() == 8);
 }
 
+void TestNuoForwardList::TestSpliceRanges()
+{
+  using List = nuostl::NuoForwardList<int>;
+  for (bool move_source : {false, true})
+  {
+    /* Check equal endpoints and the standard empty open interval. */
+    for (bool adjacent : {false, true})
+    {
+      const std::size_t position_count = adjacent ? 4 : 5;
+      for (std::size_t offset = 0; offset < position_count; ++offset)
+      {
+        List source{1, 2, 3};
+        List destination{7, 8};
+        auto first = source.CBeforeBegin();
+        for (std::size_t step = 0; step < offset; ++step)
+        {
+          ++first;
+        }
+        auto last = first;
+        if (adjacent)
+        {
+          ++last;
+        }
+        if (move_source)
+        {
+          destination.SpliceAfter(destination.CBeforeBegin(),
+                                  std::move(source), first, last);
+        }
+        else
+        {
+          destination.SpliceAfter(destination.CBeforeBegin(),
+                                  source, first, last);
+        }
+        CheckForwardListValues(source, {1, 2, 3});
+        CheckForwardListValues(destination, {7, 8});
+      }
+    }
+
+    /* Empty sources and destinations must also remain unchanged. */
+    List empty_source;
+    List destination{7, 8};
+    List source{1, 2, 3};
+    List empty_destination;
+    if (move_source)
+    {
+      destination.SpliceAfter(destination.CBeforeBegin(),
+                              std::move(empty_source),
+                              empty_source.CBeforeBegin(),
+                              empty_source.CBeforeBegin());
+      empty_destination.SpliceAfter(empty_destination.CBeforeBegin(),
+                                    std::move(source),
+                                    source.CBeforeBegin(),
+                                    source.CBeforeBegin());
+    }
+    else
+    {
+      destination.SpliceAfter(destination.CBeforeBegin(), empty_source,
+                              empty_source.CBeforeBegin(),
+                              empty_source.CBeforeBegin());
+      empty_destination.SpliceAfter(empty_destination.CBeforeBegin(), source,
+                                    source.CBeforeBegin(),
+                                    source.CBeforeBegin());
+    }
+    CheckForwardListValues(empty_source, {});
+    CheckForwardListValues(destination, {7, 8});
+    CheckForwardListValues(source, {1, 2, 3});
+    CheckForwardListValues(empty_destination, {});
+
+    /* A non-empty open interval still transfers exactly its interior. */
+    List range_source{1, 2, 3, 4};
+    List range_destination{7, 8};
+    auto last = range_source.Cbegin();
+    ++last;
+    ++last;
+    ++last;
+    if (move_source)
+    {
+      range_destination.SpliceAfter(range_destination.Cbegin(),
+                                    std::move(range_source),
+                                    range_source.Cbegin(), last);
+    }
+    else
+    {
+      range_destination.SpliceAfter(range_destination.Cbegin(), range_source,
+                                    range_source.Cbegin(), last);
+    }
+    CheckForwardListValues(range_source, {1, 4});
+    CheckForwardListValues(range_destination, {7, 2, 3, 8});
+  }
+}
+
 void TestNuoForwardList::test_remove_and_unique()
 {
   nuostl::NuoForwardList<int> l1{1, 2, 2, 3, 3, 3, 4};
@@ -417,6 +529,7 @@ void TestNuoForwardList::test_nuo_forward_list()
   test_erase_after();
   test_clear_and_swap();
   test_splice();
+  TestSpliceRanges();
   test_remove_and_unique();
   test_merge_and_sort_reverse();
 }
