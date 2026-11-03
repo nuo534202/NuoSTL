@@ -2,18 +2,192 @@
 
 #include <assert.h>
 
+#include <algorithm>
+#include <array>
+#include <cstddef>
 #include <iostream>
 #include <vector>
 #include <memory>
 #include <stdexcept>
+#include <string>
+#include <utility>
 
 #include "nuostl.hpp"
+#include "test_framework.hpp"
 
 namespace test
 {
 
 namespace
 {
+
+struct VectorCleanupValueState
+{
+    int live_count = 0;
+    int copies_before_throw = -1;
+    bool nonstandard_exception = false;
+};
+
+struct VectorCleanupValue
+{
+    VectorCleanupValue(VectorCleanupValueState& state, int value);
+    VectorCleanupValue(const VectorCleanupValue& other);
+    ~VectorCleanupValue();
+
+    VectorCleanupValueState* state;
+    int value;
+};
+
+VectorCleanupValue::VectorCleanupValue(VectorCleanupValueState& state, int value)
+    : state(&state), value(value)
+{
+    ++state.live_count;
+}
+
+VectorCleanupValue::VectorCleanupValue(const VectorCleanupValue& other)
+    : state(other.state), value(other.value)
+{
+    if (state->copies_before_throw == 0)
+    {
+        if (state->nonstandard_exception)
+        {
+            throw 42;
+        }
+        throw std::runtime_error("vector copy failed");
+    }
+    if (state->copies_before_throw > 0)
+    {
+        --state->copies_before_throw;
+    }
+    ++state->live_count;
+}
+
+VectorCleanupValue::~VectorCleanupValue()
+{
+    --state->live_count;
+}
+
+struct VectorCleanupAllocationState
+{
+    int allocations = 0;
+    int deallocations = 0;
+    int constructions = 0;
+    int destructions = 0;
+    int invalid_destructions = 0;
+    std::array<void*, 4> live_objects{};
+};
+
+template <typename T>
+struct VectorCleanupAllocator
+{
+    using value_type = T;
+
+    explicit VectorCleanupAllocator(VectorCleanupAllocationState& state)
+        : state(&state)
+    {
+    }
+
+    template <typename U>
+    VectorCleanupAllocator(const VectorCleanupAllocator<U>& other) noexcept
+        : state(other.state)
+    {
+    }
+
+    T* allocate(std::size_t count)
+    {
+        T* result = std::allocator<T>{}.allocate(count);
+        ++state->allocations;
+        return result;
+    }
+
+    void deallocate(T* pointer, std::size_t count) noexcept
+    {
+        ++state->deallocations;
+        std::allocator<T>{}.deallocate(pointer, count);
+    }
+
+    template <typename U, typename... Args>
+    void construct(U* pointer, Args&&... args)
+    {
+        std::construct_at(pointer, std::forward<Args>(args)...);
+        ++state->constructions;
+        auto slot = std::find(state->live_objects.begin(),
+                              state->live_objects.end(), nullptr);
+        NUO_TEST_CHECK(slot != state->live_objects.end());
+        if (slot != state->live_objects.end())
+        {
+            *slot = pointer;
+        }
+    }
+
+    template <typename U>
+    void destroy(U* pointer)
+    {
+        auto slot = std::find(state->live_objects.begin(),
+                              state->live_objects.end(), pointer);
+        if (slot == state->live_objects.end())
+        {
+            /* Report invalid cleanup without invoking an invalid destructor. */
+            ++state->invalid_destructions;
+            return;
+        }
+        std::destroy_at(pointer);
+        *slot = nullptr;
+        ++state->destructions;
+    }
+
+    template <typename U>
+    bool operator==(const VectorCleanupAllocator<U>& other) const noexcept
+    {
+        return state == other.state;
+    }
+
+    VectorCleanupAllocationState* state;
+};
+
+void CheckVectorCleanup(const VectorCleanupAllocationState& state,
+                        int successful_constructions)
+{
+    NUO_TEST_CHECK(state.allocations == 1);
+    NUO_TEST_CHECK(state.deallocations == 1);
+    NUO_TEST_CHECK(state.constructions == successful_constructions);
+    NUO_TEST_CHECK(state.destructions == successful_constructions);
+    NUO_TEST_CHECK(state.invalid_destructions == 0);
+    for (const void* pointer : state.live_objects)
+    {
+        NUO_TEST_CHECK(pointer == nullptr);
+    }
+}
+
+template <typename Construct>
+void ExpectVectorConstructionFailure(VectorCleanupValueState& values,
+                                     VectorCleanupAllocationState& allocation,
+                                     int successful_constructions,
+                                     bool nonstandard_exception,
+                                     Construct&& construct)
+{
+    const int live_before = values.live_count;
+    values.copies_before_throw = successful_constructions;
+    values.nonstandard_exception = nonstandard_exception;
+    bool caught = false;
+    try
+    {
+        std::forward<Construct>(construct)();
+    }
+    catch (const std::runtime_error& error)
+    {
+        caught = !nonstandard_exception &&
+                 std::string(error.what()) == "vector copy failed";
+    }
+    catch (int error)
+    {
+        caught = nonstandard_exception && error == 42;
+    }
+    values.copies_before_throw = -1;
+    NUO_TEST_CHECK(caught);
+    NUO_TEST_CHECK(values.live_count == live_before);
+    CheckVectorCleanup(allocation, successful_constructions);
+}
 
 struct VectorShrinkValue
 {
@@ -53,6 +227,128 @@ VectorShrinkValue::~VectorShrinkValue()
 }
 
 } /* namespace */
+
+void Test_Nuo_Vector::TestConstructionCleanup()
+{
+    using Allocator = VectorCleanupAllocator<VectorCleanupValue>;
+    using Vector = nuostl::nuo_vector<VectorCleanupValue, Allocator>;
+    for (bool nonstandard_exception : {false, true})
+    {
+        for (int successful_constructions : {0, 1, 2})
+        {
+            VectorCleanupValueState values;
+            VectorCleanupAllocationState source_allocation;
+            VectorCleanupAllocationState destination_allocation;
+            {
+                VectorCleanupValue seed(values, 17);
+                Vector source(3, seed, Allocator(source_allocation));
+                VectorCleanupValue* original_data = source.data();
+                ExpectVectorConstructionFailure(
+                    values, destination_allocation, successful_constructions,
+                    nonstandard_exception, [&]()
+                {
+                    Vector destination(std::move(source),
+                                       Allocator(destination_allocation));
+                });
+                /* This copy-only value leaves the source unchanged. */
+                NUO_TEST_CHECK(source.data() == original_data);
+                NUO_TEST_CHECK(source.size() == 3);
+                for (const auto& value : source)
+                {
+                    NUO_TEST_CHECK(value.value == 17);
+                }
+            }
+            NUO_TEST_CHECK(values.live_count == 0);
+            CheckVectorCleanup(source_allocation, 3);
+
+#if defined(_LIBCPP_STD_VER) && _LIBCPP_STD_VER >= 23
+            VectorCleanupValueState range_values;
+            VectorCleanupAllocationState range_allocation;
+            {
+                std::array<VectorCleanupValue, 3> input{
+                    VectorCleanupValue(range_values, 1),
+                    VectorCleanupValue(range_values, 2),
+                    VectorCleanupValue(range_values, 3)};
+                ExpectVectorConstructionFailure(
+                    range_values, range_allocation, successful_constructions,
+                    nonstandard_exception, [&]()
+                {
+                    Vector destination(std::from_range, input,
+                                       Allocator(range_allocation));
+                });
+                NUO_TEST_CHECK(input[0].value == 1);
+                NUO_TEST_CHECK(input[1].value == 2);
+                NUO_TEST_CHECK(input[2].value == 3);
+            }
+            NUO_TEST_CHECK(range_values.live_count == 0);
+#endif
+        }
+    }
+
+    VectorCleanupValueState values;
+    VectorCleanupAllocationState source_allocation;
+    VectorCleanupAllocationState destination_allocation;
+    {
+        VectorCleanupValue seed(values, 23);
+        Vector source(3, seed, Allocator(source_allocation));
+        {
+            Vector destination(std::move(source),
+                               Allocator(destination_allocation));
+            NUO_TEST_CHECK(destination.size() == 3);
+            NUO_TEST_CHECK(values.live_count == 7);
+            for (const auto& value : destination)
+            {
+                NUO_TEST_CHECK(value.value == 23);
+            }
+        }
+        NUO_TEST_CHECK(values.live_count == 4);
+    }
+    NUO_TEST_CHECK(values.live_count == 0);
+    CheckVectorCleanup(source_allocation, 3);
+    CheckVectorCleanup(destination_allocation, 3);
+
+#if defined(_LIBCPP_STD_VER) && _LIBCPP_STD_VER >= 23
+    VectorCleanupValueState range_values;
+    VectorCleanupAllocationState range_allocation;
+    {
+        std::array<VectorCleanupValue, 3> input{
+            VectorCleanupValue(range_values, 1),
+            VectorCleanupValue(range_values, 2),
+            VectorCleanupValue(range_values, 3)};
+        {
+            Vector destination(std::from_range, input,
+                               Allocator(range_allocation));
+            NUO_TEST_CHECK(destination.size() == 3);
+            NUO_TEST_CHECK(range_values.live_count == 6);
+            for (std::size_t i = 0;
+                 i < input.size() && i < destination.size(); ++i)
+            {
+                NUO_TEST_CHECK(destination[i].value == input[i].value);
+            }
+        }
+        NUO_TEST_CHECK(range_values.live_count == 3);
+    }
+    NUO_TEST_CHECK(range_values.live_count == 0);
+    CheckVectorCleanup(range_allocation, 3);
+
+    VectorCleanupAllocationState empty_range_allocation;
+    std::array<VectorCleanupValue, 0> empty_input;
+    Vector empty_range(std::from_range, empty_input,
+                       Allocator(empty_range_allocation));
+    NUO_TEST_CHECK(empty_range.empty());
+    NUO_TEST_CHECK(empty_range_allocation.allocations == 0);
+#endif
+
+    VectorCleanupAllocationState empty_source_allocation;
+    VectorCleanupAllocationState empty_destination_allocation;
+    Vector empty_source{Allocator(empty_source_allocation)};
+    Vector empty_destination(std::move(empty_source),
+                             Allocator(empty_destination_allocation));
+    NUO_TEST_CHECK(empty_source.empty());
+    NUO_TEST_CHECK(empty_destination.empty());
+    NUO_TEST_CHECK(empty_source_allocation.allocations == 0);
+    NUO_TEST_CHECK(empty_destination_allocation.allocations == 0);
+}
 
 void Test_Nuo_Vector::TestShrinkLifetime()
 {
@@ -1197,6 +1493,7 @@ void Test_Nuo_Vector::test_clear()
 
 void Test_Nuo_Vector::test_nuo_vector()
 {
+    TestConstructionCleanup();
     TestShrinkLifetime();
     /* test correctness */
     test_constructor();

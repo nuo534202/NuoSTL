@@ -188,15 +188,16 @@ public:
                     i++;
                 }
             }
-            catch (const std::exception& e)
+            catch (...)
             {
                 for (idx_t j = 0; j < i; j++)
-                    std::allocator_traits<Allocator>::destory(_alloc, _data + j);
+                {
+                    std::allocator_traits<Allocator>::destroy(_alloc, _data + j);
+                }
 
                 std::allocator_traits<Allocator>::deallocate(_alloc, _data, _capacity);
                 _size = _capacity = 0;
                 _data = nullptr;
-                std::cerr << e.what() << std::endl;
                 throw;
             }
         }
@@ -308,15 +309,16 @@ public:
                     std::allocator_traits<Allocator>::construct(_alloc, _data + i,
                                                                 std::move(nv._data[i]));
             }
-            catch (const std::exception& e)
+            catch (...)
             {
                 for (idx_t j = 0; j < i; j++)
-                    std::allocator_traits<Allocator>::destory(_alloc, _data + i);
+                {
+                    std::allocator_traits<Allocator>::destroy(_alloc, _data + j);
+                }
 
                 std::allocator_traits<Allocator>::deallocate(_alloc, _data, _capacity);
                 _size = _capacity = 0;
                 _data = nullptr;
-                std::cerr << e.what() << std::endl;
                 throw;
             }
         }
