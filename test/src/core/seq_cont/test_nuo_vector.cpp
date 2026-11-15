@@ -10,6 +10,7 @@
 #include <memory>
 #include <stdexcept>
 #include <string>
+#include <type_traits>
 #include <utility>
 
 #include "nuostl.hpp"
@@ -20,6 +21,465 @@ namespace test
 
 namespace
 {
+
+struct VectorAssignmentState
+{
+    struct Block
+    {
+        void* pointer;
+        std::size_t count;
+        int owner;
+    };
+
+    int live_values = 0;
+    int allocations = 0;
+    int deallocations = 0;
+    int copies = 0;
+    int moves = 0;
+    int invalid_destructions = 0;
+    int wrong_deallocations = 0;
+    int constructions_before_throw = -1;
+    bool fail_allocation = false;
+    bool nonstandard_exception = false;
+    std::vector<Block> blocks;
+    std::vector<void*> objects;
+
+    void MaybeThrowConstruction();
+    void CheckReleased() const;
+    void CheckOwnership() const;
+};
+
+void VectorAssignmentState::MaybeThrowConstruction()
+{
+    if (constructions_before_throw == 0)
+    {
+        if (nonstandard_exception)
+        {
+            throw 42;
+        }
+        throw std::runtime_error("vector assignment failed");
+    }
+    if (constructions_before_throw > 0)
+    {
+        --constructions_before_throw;
+    }
+}
+
+void VectorAssignmentState::CheckReleased() const
+{
+    NUO_TEST_CHECK(live_values == 0);
+    NUO_TEST_CHECK(allocations == deallocations);
+    NUO_TEST_CHECK(blocks.empty());
+    NUO_TEST_CHECK(objects.empty());
+}
+
+void VectorAssignmentState::CheckOwnership() const
+{
+    NUO_TEST_CHECK(invalid_destructions == 0);
+    NUO_TEST_CHECK(wrong_deallocations == 0);
+}
+
+struct VectorAssignmentValue
+{
+    VectorAssignmentValue(VectorAssignmentState& state, int value);
+    VectorAssignmentValue(const VectorAssignmentValue& other);
+    VectorAssignmentValue(VectorAssignmentValue&& other);
+    ~VectorAssignmentValue();
+
+    VectorAssignmentState* state;
+    int value;
+};
+
+VectorAssignmentValue::VectorAssignmentValue(VectorAssignmentState& state,
+                                             int value)
+    : state(&state), value(value)
+{
+    ++state.live_values;
+}
+
+VectorAssignmentValue::VectorAssignmentValue(
+    const VectorAssignmentValue& other)
+    : state(other.state), value(other.value)
+{
+    state->MaybeThrowConstruction();
+    ++state->live_values;
+    ++state->copies;
+}
+
+VectorAssignmentValue::VectorAssignmentValue(VectorAssignmentValue&& other)
+    : state(other.state), value(other.value)
+{
+    state->MaybeThrowConstruction();
+    other.value = -1;
+    ++state->live_values;
+    ++state->moves;
+}
+
+VectorAssignmentValue::~VectorAssignmentValue()
+{
+    --state->live_values;
+}
+
+template <
+    typename T,
+    bool CopyPropagate = false,
+    bool MovePropagate = false,
+    bool AlwaysEqual = false>
+struct VectorAssignmentAllocator
+{
+    using value_type = T;
+    using propagate_on_container_copy_assignment =
+        std::bool_constant<CopyPropagate>;
+    using propagate_on_container_move_assignment =
+        std::bool_constant<MovePropagate>;
+    using is_always_equal = std::bool_constant<AlwaysEqual>;
+
+    template <typename U>
+    struct rebind
+    {
+        using other = VectorAssignmentAllocator<
+            U, CopyPropagate, MovePropagate, AlwaysEqual>;
+    };
+
+    VectorAssignmentAllocator(VectorAssignmentState& state, int owner)
+        : state(&state), owner(owner)
+    {
+    }
+
+    template <typename U>
+    VectorAssignmentAllocator(const VectorAssignmentAllocator<
+        U, CopyPropagate, MovePropagate, AlwaysEqual>& other) noexcept
+        : state(other.state), owner(other.owner)
+    {
+    }
+
+    T* allocate(std::size_t count)
+    {
+        if (state->fail_allocation)
+        {
+            throw std::bad_alloc();
+        }
+        T* pointer = std::allocator<T>{}.allocate(count);
+        try
+        {
+            state->blocks.push_back({pointer, count, owner});
+        }
+        catch (...)
+        {
+            std::allocator<T>{}.deallocate(pointer, count);
+            throw;
+        }
+        ++state->allocations;
+        return pointer;
+    }
+
+    void deallocate(T* pointer, std::size_t count) noexcept
+    {
+        auto found = std::find_if(
+            state->blocks.begin(), state->blocks.end(),
+            [pointer](const VectorAssignmentState::Block& block)
+            {
+                return block.pointer == pointer;
+            });
+        if (found == state->blocks.end())
+        {
+            ++state->wrong_deallocations;
+            return;
+        }
+        if ((!AlwaysEqual && found->owner != owner) || found->count != count)
+        {
+            ++state->wrong_deallocations;
+        }
+        std::allocator<T>{}.deallocate(pointer, found->count);
+        state->blocks.erase(found);
+        ++state->deallocations;
+    }
+
+    template <typename U, typename... Args>
+    void construct(U* pointer, Args&&... args)
+    {
+        std::construct_at(pointer, std::forward<Args>(args)...);
+        try
+        {
+            state->objects.push_back(pointer);
+        }
+        catch (...)
+        {
+            std::destroy_at(pointer);
+            throw;
+        }
+    }
+
+    template <typename U>
+    void destroy(U* pointer)
+    {
+        auto found = std::find(state->objects.begin(),
+                               state->objects.end(), pointer);
+        if (found == state->objects.end())
+        {
+            ++state->invalid_destructions;
+            return;
+        }
+        std::destroy_at(pointer);
+        state->objects.erase(found);
+    }
+
+    template <typename U>
+    bool operator==(const VectorAssignmentAllocator<
+        U, CopyPropagate, MovePropagate, AlwaysEqual>& other) const noexcept
+    {
+        return AlwaysEqual || (state == other.state && owner == other.owner);
+    }
+
+    VectorAssignmentState* state;
+    int owner;
+};
+
+template <typename Vector>
+void CheckAssignmentValues(const Vector& vector, std::size_t size, int value)
+{
+    NUO_TEST_CHECK(vector.size() == size);
+    NUO_TEST_CHECK(vector.size() <= vector.capacity());
+    for (std::size_t i = 0; i < size && i < vector.size(); ++i)
+    {
+        NUO_TEST_CHECK(vector[i].value == value);
+    }
+}
+
+template <typename Vector>
+void CheckAssignmentStorage(const Vector& vector,
+                            const VectorAssignmentState& state)
+{
+    for (std::size_t i = 0; i < vector.size(); ++i)
+    {
+        NUO_TEST_CHECK(std::find(state.objects.begin(), state.objects.end(),
+                                 std::addressof(vector[i])) !=
+                       state.objects.end());
+    }
+    state.CheckOwnership();
+}
+
+template <bool CopyPropagate>
+void CheckCopyAssignment(bool equal_allocators,
+                         std::size_t target_size,
+                         std::size_t source_size)
+{
+    using Allocator = VectorAssignmentAllocator<
+        VectorAssignmentValue, CopyPropagate, false, false>;
+    using Vector = nuostl::nuo_vector<VectorAssignmentValue, Allocator>;
+    VectorAssignmentState state;
+    {
+        VectorAssignmentValue target_seed(state, 9);
+        VectorAssignmentValue source_seed(state, 4);
+        Vector target(target_size, target_seed, Allocator(state, 1));
+        Vector source(source_size, source_seed,
+                      Allocator(state, equal_allocators ? 1 : 2));
+        target = source;
+        CheckAssignmentValues(target, source_size, 4);
+        CheckAssignmentValues(source, source_size, 4);
+        CheckAssignmentStorage(target, state);
+        CheckAssignmentStorage(source, state);
+        const int expected_owner =
+            equal_allocators ? 1 : (CopyPropagate ? 2 : 1);
+        NUO_TEST_CHECK(target.get_allocator().owner == expected_owner);
+    }
+    state.CheckReleased();
+}
+
+template <bool CopyPropagate>
+void CheckCopyAssignmentFailure(bool fail_allocation,
+                                bool nonstandard_exception)
+{
+    using Allocator = VectorAssignmentAllocator<
+        VectorAssignmentValue, CopyPropagate, false, false>;
+    using Vector = nuostl::nuo_vector<VectorAssignmentValue, Allocator>;
+    VectorAssignmentState state;
+    {
+        VectorAssignmentValue target_seed(state, 9);
+        VectorAssignmentValue source_seed(state, 4);
+        Vector target(2, target_seed, Allocator(state, 1));
+        Vector source(4, source_seed, Allocator(state, 2));
+        const auto* original_data = target.data();
+        state.fail_allocation = fail_allocation;
+        state.constructions_before_throw = fail_allocation ? -1 : 1;
+        state.nonstandard_exception = nonstandard_exception;
+        bool caught = false;
+        try
+        {
+            target = source;
+        }
+        catch (const std::bad_alloc&)
+        {
+            caught = fail_allocation;
+        }
+        catch (const std::runtime_error& error)
+        {
+            caught = !fail_allocation && !nonstandard_exception &&
+                     std::string(error.what()) == "vector assignment failed";
+        }
+        catch (int error)
+        {
+            caught = !fail_allocation && nonstandard_exception && error == 42;
+        }
+        state.fail_allocation = false;
+        state.constructions_before_throw = -1;
+        state.nonstandard_exception = false;
+        NUO_TEST_CHECK(caught);
+        NUO_TEST_CHECK(target.data() == original_data);
+        CheckAssignmentValues(target, 2, 9);
+        CheckAssignmentValues(source, 4, 4);
+        CheckAssignmentStorage(target, state);
+        CheckAssignmentStorage(source, state);
+        NUO_TEST_CHECK(target.get_allocator().owner == 1);
+    }
+    state.CheckReleased();
+}
+
+template <bool MovePropagate, bool AlwaysEqual>
+void CheckMoveAssignment(bool equal_allocators,
+                         std::size_t target_size,
+                         std::size_t source_size)
+{
+    using Allocator = VectorAssignmentAllocator<
+        VectorAssignmentValue, false, MovePropagate, AlwaysEqual>;
+    using Vector = nuostl::nuo_vector<VectorAssignmentValue, Allocator>;
+    VectorAssignmentState state;
+    {
+        VectorAssignmentValue target_seed(state, 9);
+        VectorAssignmentValue source_seed(state, 4);
+        Vector target(target_size, target_seed, Allocator(state, 1));
+        Vector source(source_size, source_seed,
+                      Allocator(state, equal_allocators ? 1 : 2));
+        auto* original_data = source.data();
+        const int moves_before = state.moves;
+        target = std::move(source);
+        CheckAssignmentValues(target, source_size, 4);
+        CheckAssignmentStorage(target, state);
+        CheckAssignmentStorage(source, state);
+        const int expected_owner =
+            equal_allocators ? 1 : (MovePropagate ? 2 : 1);
+        NUO_TEST_CHECK(target.get_allocator().owner == expected_owner);
+        if (MovePropagate || AlwaysEqual || equal_allocators)
+        {
+            NUO_TEST_CHECK(source.empty());
+            NUO_TEST_CHECK(target.data() == original_data);
+            NUO_TEST_CHECK(state.moves == moves_before);
+        }
+        else
+        {
+            if (source_size != 0)
+            {
+                NUO_TEST_CHECK(target.data() != original_data);
+            }
+            NUO_TEST_CHECK(state.moves ==
+                           moves_before + static_cast<int>(source_size));
+        }
+    }
+    state.CheckReleased();
+}
+
+template <bool MovePropagate, bool AlwaysEqual>
+void CheckMoveAssignmentFailure(bool fail_allocation,
+                                bool nonstandard_exception)
+{
+    using Allocator = VectorAssignmentAllocator<
+        VectorAssignmentValue, false, MovePropagate, AlwaysEqual>;
+    using Vector = nuostl::nuo_vector<VectorAssignmentValue, Allocator>;
+    VectorAssignmentState state;
+    {
+        VectorAssignmentValue target_seed(state, 9);
+        VectorAssignmentValue source_seed(state, 4);
+        Vector target(2, target_seed, Allocator(state, 1));
+        Vector source(3, source_seed, Allocator(state, 2));
+        const auto* original_target_data = target.data();
+        const auto* source_data = source.data();
+        if constexpr (MovePropagate || AlwaysEqual)
+        {
+            static_assert(std::is_nothrow_move_assignable_v<Vector>);
+            const int moves_before = state.moves;
+            state.fail_allocation = fail_allocation;
+            state.constructions_before_throw = fail_allocation ? -1 : 0;
+            target = std::move(source);
+            state.fail_allocation = false;
+            state.constructions_before_throw = -1;
+            CheckAssignmentValues(target, 3, 4);
+            CheckAssignmentStorage(target, state);
+            CheckAssignmentStorage(source, state);
+            NUO_TEST_CHECK(source.empty());
+            NUO_TEST_CHECK(target.data() == source_data);
+            NUO_TEST_CHECK(state.moves == moves_before);
+            NUO_TEST_CHECK(target.get_allocator().owner ==
+                           (MovePropagate ? 2 : 1));
+        }
+        else
+        {
+            state.fail_allocation = fail_allocation;
+            state.constructions_before_throw = fail_allocation ? -1 : 1;
+            state.nonstandard_exception = nonstandard_exception;
+            bool caught = false;
+            try
+            {
+                target = std::move(source);
+            }
+            catch (const std::bad_alloc&)
+            {
+                caught = fail_allocation;
+            }
+            catch (const std::runtime_error& error)
+            {
+                caught = !fail_allocation && !nonstandard_exception &&
+                         std::string(error.what()) ==
+                             "vector assignment failed";
+            }
+            catch (int error)
+            {
+                caught = !fail_allocation && nonstandard_exception &&
+                         error == 42;
+            }
+            state.fail_allocation = false;
+            state.constructions_before_throw = -1;
+            state.nonstandard_exception = false;
+            NUO_TEST_CHECK(caught);
+            NUO_TEST_CHECK(target.data() == original_target_data);
+            CheckAssignmentValues(target, 2, 9);
+            NUO_TEST_CHECK(source.size() == 3);
+            CheckAssignmentStorage(target, state);
+            CheckAssignmentStorage(source, state);
+            NUO_TEST_CHECK(target.get_allocator().owner == 1);
+        }
+    }
+    state.CheckReleased();
+}
+
+struct VectorImmovableValue
+{
+    VectorImmovableValue() = default;
+    VectorImmovableValue(const VectorImmovableValue&) = delete;
+    VectorImmovableValue(VectorImmovableValue&&) = delete;
+    VectorImmovableValue& operator=(const VectorImmovableValue&) = delete;
+    VectorImmovableValue& operator=(VectorImmovableValue&&) = delete;
+};
+
+template <bool MovePropagate, bool AlwaysEqual>
+void CheckImmovableBufferTransfer()
+{
+    using Allocator = VectorAssignmentAllocator<
+        VectorImmovableValue, false, MovePropagate, AlwaysEqual>;
+    using Vector = nuostl::nuo_vector<VectorImmovableValue, Allocator>;
+    static_assert(std::is_nothrow_move_assignable_v<Vector>);
+    VectorAssignmentState state;
+    {
+        Vector source(2, Allocator(state, 2));
+        Vector target(1, Allocator(state, 1));
+        auto* original_data = source.data();
+        target = std::move(source);
+        NUO_TEST_CHECK(target.data() == original_data);
+        NUO_TEST_CHECK(target.size() == 2);
+        NUO_TEST_CHECK(target.get_allocator().owner ==
+                       (MovePropagate ? 2 : 1));
+    }
+    state.CheckReleased();
+}
 
 struct VectorCleanupValueState
 {
@@ -348,6 +808,68 @@ void Test_Nuo_Vector::TestConstructionCleanup()
     NUO_TEST_CHECK(empty_destination.empty());
     NUO_TEST_CHECK(empty_source_allocation.allocations == 0);
     NUO_TEST_CHECK(empty_destination_allocation.allocations == 0);
+}
+
+void Test_Nuo_Vector::TestAssignmentOwnership()
+{
+    for (bool equal_allocators : {false, true})
+    {
+        CheckCopyAssignment<false>(equal_allocators, 0, 3);
+        CheckCopyAssignment<false>(equal_allocators, 2, 0);
+        CheckCopyAssignment<false>(equal_allocators, 2, 3);
+        CheckCopyAssignment<true>(equal_allocators, 0, 3);
+        CheckCopyAssignment<true>(equal_allocators, 2, 0);
+        CheckCopyAssignment<true>(equal_allocators, 2, 3);
+
+        CheckMoveAssignment<false, false>(equal_allocators, 0, 3);
+        CheckMoveAssignment<false, false>(equal_allocators, 2, 0);
+        CheckMoveAssignment<false, false>(equal_allocators, 2, 3);
+        CheckMoveAssignment<true, false>(equal_allocators, 0, 3);
+        CheckMoveAssignment<true, false>(equal_allocators, 2, 0);
+        CheckMoveAssignment<true, false>(equal_allocators, 2, 3);
+        CheckMoveAssignment<false, true>(equal_allocators, 0, 3);
+        CheckMoveAssignment<false, true>(equal_allocators, 2, 0);
+        CheckMoveAssignment<false, true>(equal_allocators, 2, 3);
+    }
+
+    for (bool fail_allocation : {false, true})
+    {
+        for (bool nonstandard_exception : {false, true})
+        {
+            CheckCopyAssignmentFailure<false>(fail_allocation,
+                                               nonstandard_exception);
+            CheckCopyAssignmentFailure<true>(fail_allocation,
+                                              nonstandard_exception);
+            CheckMoveAssignmentFailure<false, false>(fail_allocation,
+                                                     nonstandard_exception);
+        }
+    }
+    CheckMoveAssignmentFailure<true, false>(true, false);
+    CheckMoveAssignmentFailure<true, false>(false, false);
+    CheckMoveAssignmentFailure<false, true>(true, false);
+    CheckMoveAssignmentFailure<false, true>(false, false);
+
+    using Allocator = VectorAssignmentAllocator<VectorAssignmentValue>;
+    using Vector = nuostl::nuo_vector<VectorAssignmentValue, Allocator>;
+    static_assert(!std::is_nothrow_move_assignable_v<Vector>);
+    static_assert(std::is_nothrow_move_assignable_v<nuostl::nuo_vector<int>>);
+
+    VectorAssignmentState self_state;
+    {
+        VectorAssignmentValue seed(self_state, 6);
+        Vector vector(3, seed, Allocator(self_state, 1));
+        Vector& alias = vector;
+        const auto* original_data = vector.data();
+        vector = alias;
+        vector = std::move(alias);
+        NUO_TEST_CHECK(vector.data() == original_data);
+        CheckAssignmentValues(vector, 3, 6);
+        CheckAssignmentStorage(vector, self_state);
+    }
+    self_state.CheckReleased();
+
+    CheckImmovableBufferTransfer<true, false>();
+    CheckImmovableBufferTransfer<false, true>();
 }
 
 void Test_Nuo_Vector::TestShrinkLifetime()
@@ -1494,6 +2016,7 @@ void Test_Nuo_Vector::test_clear()
 void Test_Nuo_Vector::test_nuo_vector()
 {
     TestConstructionCleanup();
+    TestAssignmentOwnership();
     TestShrinkLifetime();
     /* test correctness */
     test_constructor();

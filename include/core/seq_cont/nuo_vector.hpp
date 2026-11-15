@@ -269,7 +269,7 @@ public:
             for (; i < _size; i++)
                 std::allocator_traits<Allocator>::construct(_alloc, _data + i, nv._data[i]);
         }
-        catch (const std::exception& e)
+        catch (...)
         {
             for (idx_t j = 0; j < i; j++)
                 std::allocator_traits<Allocator>::destroy(_alloc, _data + j);
@@ -277,7 +277,6 @@ public:
             std::allocator_traits<Allocator>::deallocate(_alloc, _data, _capacity);
             _size = _capacity = 0;
             _data = nullptr;
-            std::cerr << e.what() << std::endl;
             throw;
         }
     }
@@ -376,33 +375,22 @@ public:
     constexpr nuo_vector &operator=(const nuo_vector &nv)
     {
         if (this == &nv)
+        {
             return *this;
-
-        for (idx_t i = 0; i < _size; i++)
-            std::allocator_traits<Allocator>::destroy(_alloc, _data + i);
-
-        _alloc = nv.get_allocator();
-        reserve(nv.capacity());
-        _size = nv.size();
-
-        idx_t i = 0;
-        try
-        {
-            for (; i < _size; i++)
-                std::allocator_traits<Allocator>::construct(_alloc, _data + i, nv[i]);
-        }
-        catch(const std::exception& e)
-        {
-            for (idx_t j = 0; j < i; j++)
-                std::allocator_traits<Allocator>::destroy(_alloc, _data + j);
-
-            std::allocator_traits<Allocator>::deallocate(_alloc, _data, _capacity);
-            _size = _capacity = 0;
-            _data = nullptr;
-            std::cerr << e.what() << std::endl;
-            throw;
         }
 
+        using Traits = std::allocator_traits<Allocator>;
+        constexpr bool propagate =
+            Traits::propagate_on_container_copy_assignment::value;
+        const Allocator &replacement_alloc = propagate ? nv._alloc : _alloc;
+        nuo_vector replacement(nv, replacement_alloc);
+
+        ReleaseStorage();
+        if constexpr (propagate)
+        {
+            _alloc = nv._alloc;
+        }
+        SwapStorage(replacement);
         return *this;
     }
 
@@ -411,99 +399,36 @@ public:
         std::allocator_traits<Allocator>::is_always_equal::value)
     {
         if (this == &nv)
-            return *this;
-
-        for (idx_t i = 0; i < _size; i++)
-            std::allocator_traits<Allocator>::destroy(_alloc, _data + i);
-
-        constexpr bool propagate =
-            std::allocator_traits<Allocator>::propagate_on_container_move_assignment::value;
-        
-        constexpr bool always_equal = 
-            std::allocator_traits<Allocator>::is_always_equal::value;
-
-        if (propagate || always_equal || _alloc == nv._alloc)
         {
-            if (_data != nullptr)
-            {
-                for (idx_t i = 0; i < _size; i++)
-                    std::allocator_traits<Allocator>::destroy(_alloc, _data + i);
-                
-                std::allocator_traits<Allocator>::deallocate(_alloc, _data, _capacity);
-                _data = nullptr;
-            }
+            return *this;
+        }
 
+        using Traits = std::allocator_traits<Allocator>;
+        if constexpr (Traits::propagate_on_container_move_assignment::value)
+        {
+            ReleaseStorage();
             _alloc = std::move(nv._alloc);
-            _data = nv._data, _size = nv._size, _capacity = nv._capacity;
-            nv._data = nullptr, nv._size = nv._capacity = 0;
+            SwapStorage(nv);
+        }
+        else if constexpr (Traits::is_always_equal::value)
+        {
+            ReleaseStorage();
+            SwapStorage(nv);
+        }
+        else if (_alloc == nv._alloc)
+        {
+            ReleaseStorage();
+            SwapStorage(nv);
         }
         else
         {
-            if (_capacity >= nv._size)
-            {
-                for (idx_t i = 0; i < nuo_min(_size, nv._size); i++)
-                    _data[i] = std::move(nv._data[i]);
-                
-                if (_size > nv._size)
-                {
-                    for (idx_t i = nv._size; i < _size; i++)
-                        std::allocator_traits<Allocator>::destroy(_alloc, _data + i);
-                }
-                else if (_size < nv._size)
-                {
-                    idx_t i = _size;
-                    try
-                    {
-                        for (; i < nv._size; i++)
-                            std::allocator_traits<Allocator>::construct(
-                                _alloc, _data + i, std::move(nv._data[i]));
-                    }
-                    catch(const std::exception& e)
-                    {
-                        for (idx_t j = 0; j < i; j++)
-                            std::allocator_traits<Allocator>::destroy(_alloc, _data + j);
-
-                        std::allocator_traits<Allocator>::deallocate(_alloc, _data, _capacity);
-                        _size = _capacity = 0;
-                        _data = nullptr;
-                        std::cerr << e.what() << std::endl;
-                    }
-                }
-                _size = nv._size;
-            }
-            else
-            {
-                if (_data != nullptr)
-                {
-                    for (idx_t i = 0; i < _size; i++)
-                        std::allocator_traits<Allocator>::destroy(_alloc, _data + i);
-                    
-                    std::allocator_traits<Allocator>::deallocate(_alloc, _data, _capacity);
-                    _data = nullptr;
-                }
-
-                _size = nv._size, _capacity = nv._capacity;
-
-                _data = std::allocator_traits<Allocator>::allocate(_alloc, _capacity);
-
-                idx_t i = 0;
-                try
-                {
-                    for (; i < _size; i++)
-                        std::allocator_traits<Allocator>::construct(
-                            _alloc, _data + i, std::move(nv._data[i]));
-                }
-                catch (const std::exception& e)
-                {
-                    for (idx_t j = 0; j < i; j++)
-                        std::allocator_traits<Allocator>::destroy(_alloc, _data + j);
-
-                    std::allocator_traits<Allocator>::deallocate(_alloc, _data, _capacity);
-                    _size = _capacity = 0;
-                    _data = nullptr;
-                    std::cerr << e.what() << std::endl;
-                }   
-            }
+            /* Build with the destination allocator before replacing storage. */
+            nuo_vector replacement(_alloc);
+            replacement.ConstructRange(
+                std::make_move_iterator(nv._data), nv._size);
+            nv.clear();
+            ReleaseStorage();
+            SwapStorage(replacement);
         }
 
         return *this;
@@ -819,7 +744,52 @@ public:
         return _alloc;
     }
 
+private:
+    constexpr void ReleaseStorage() noexcept
+    {
+        clear();
+        if (_data != nullptr)
+        {
+            std::allocator_traits<Allocator>::deallocate(
+                _alloc, _data, _capacity);
+        }
+        _data = nullptr;
+        _capacity = 0;
+    }
 
+    constexpr void SwapStorage(nuo_vector &other) noexcept
+    {
+        std::swap(_data, other._data);
+        std::swap(_size, other._size);
+        std::swap(_capacity, other._capacity);
+    }
+
+    template <typename InputIter>
+    constexpr void ConstructRange(InputIter first, size_t count)
+    {
+        if (count == 0)
+        {
+            return;
+        }
+
+        _data = std::allocator_traits<Allocator>::allocate(_alloc, count);
+        _capacity = count;
+        try
+        {
+            for (; _size < count; ++_size, ++first)
+            {
+                std::allocator_traits<Allocator>::construct(
+                    _alloc, _data + _size, *first);
+            }
+        }
+        catch (...)
+        {
+            ReleaseStorage();
+            throw;
+        }
+    }
+
+public:
     /* iterators */
     constexpr iterator begin() noexcept
     {
