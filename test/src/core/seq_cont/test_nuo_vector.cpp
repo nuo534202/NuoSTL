@@ -5,6 +5,7 @@
 #include <algorithm>
 #include <array>
 #include <cstddef>
+#include <initializer_list>
 #include <iostream>
 #include <vector>
 #include <memory>
@@ -481,6 +482,88 @@ void CheckImmovableBufferTransfer()
     state.CheckReleased();
 }
 
+void CheckInitializerListAssignment()
+{
+    using Allocator = VectorAssignmentAllocator<VectorAssignmentValue>;
+    using Vector = nuostl::nuo_vector<VectorAssignmentValue, Allocator>;
+    VectorAssignmentState state;
+    auto check_assignment = [&state](std::size_t target_size,
+                                     std::initializer_list<VectorAssignmentValue>
+                                         values)
+    {
+        {
+            VectorAssignmentValue target_seed(state, 9);
+            Vector target(target_size, target_seed, Allocator(state, 3));
+            target = values;
+            NUO_TEST_CHECK(target.size() == values.size());
+            for (std::size_t i = 0; i < values.size(); ++i)
+            {
+                NUO_TEST_CHECK(target[i].value == values.begin()[i].value);
+            }
+            CheckAssignmentStorage(target, state);
+            NUO_TEST_CHECK(target.get_allocator().owner == 3);
+        }
+    };
+
+    check_assignment(0, {VectorAssignmentValue(state, 1),
+                         VectorAssignmentValue(state, 2),
+                         VectorAssignmentValue(state, 3)});
+    check_assignment(2, {VectorAssignmentValue(state, 4),
+                         VectorAssignmentValue(state, 5)});
+    check_assignment(5, {VectorAssignmentValue(state, 6)});
+    check_assignment(3, {});
+    state.CheckReleased();
+}
+
+void CheckInitializerListAssignmentFailure(int successful_constructions,
+                                           bool fail_allocation,
+                                           bool nonstandard_exception)
+{
+    using Allocator = VectorAssignmentAllocator<VectorAssignmentValue>;
+    using Vector = nuostl::nuo_vector<VectorAssignmentValue, Allocator>;
+    VectorAssignmentState state;
+    {
+        VectorAssignmentValue target_seed(state, 9);
+        Vector target(2, target_seed, Allocator(state, 5));
+        const auto* original_data = target.data();
+        const std::initializer_list<VectorAssignmentValue> values{
+            VectorAssignmentValue(state, 1),
+            VectorAssignmentValue(state, 2),
+            VectorAssignmentValue(state, 3)};
+        state.fail_allocation = fail_allocation;
+        state.constructions_before_throw =
+            fail_allocation ? -1 : successful_constructions;
+        state.nonstandard_exception = nonstandard_exception;
+        bool caught = false;
+        try
+        {
+            target = values;
+        }
+        catch (const std::bad_alloc&)
+        {
+            caught = fail_allocation;
+        }
+        catch (const std::runtime_error& error)
+        {
+            caught = !fail_allocation && !nonstandard_exception &&
+                     std::string(error.what()) == "vector assignment failed";
+        }
+        catch (int error)
+        {
+            caught = !fail_allocation && nonstandard_exception && error == 42;
+        }
+        state.fail_allocation = false;
+        state.constructions_before_throw = -1;
+        state.nonstandard_exception = false;
+        NUO_TEST_CHECK(caught);
+        NUO_TEST_CHECK(target.data() == original_data);
+        CheckAssignmentValues(target, 2, 9);
+        CheckAssignmentStorage(target, state);
+        NUO_TEST_CHECK(target.get_allocator().owner == 5);
+    }
+    state.CheckReleased();
+}
+
 struct VectorCleanupValueState
 {
     int live_count = 0;
@@ -870,6 +953,20 @@ void Test_Nuo_Vector::TestAssignmentOwnership()
 
     CheckImmovableBufferTransfer<true, false>();
     CheckImmovableBufferTransfer<false, true>();
+}
+
+void Test_Nuo_Vector::TestInitializerListAssignment()
+{
+    CheckInitializerListAssignment();
+    for (int successful_constructions : {0, 1, 2})
+    {
+        for (bool nonstandard_exception : {false, true})
+        {
+            CheckInitializerListAssignmentFailure(
+                successful_constructions, false, nonstandard_exception);
+        }
+    }
+    CheckInitializerListAssignmentFailure(0, true, false);
 }
 
 void Test_Nuo_Vector::TestShrinkLifetime()
@@ -2017,6 +2114,7 @@ void Test_Nuo_Vector::test_nuo_vector()
 {
     TestConstructionCleanup();
     TestAssignmentOwnership();
+    TestInitializerListAssignment();
     TestShrinkLifetime();
     /* test correctness */
     test_constructor();

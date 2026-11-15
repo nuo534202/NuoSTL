@@ -436,36 +436,11 @@ public:
 
     constexpr nuo_vector &operator=(std::initializer_list<T> il)
     {
-        _size = _capacity = il.size();
-        _alloc = Allocator();
-
-        if (_size == 0)
-        {
-            _size = _capacity = 0;
-            _data = nullptr;
-            return *this;
-        }
-
-        _data = std::allocator_traits<Allocator>::allocate(_alloc, _capacity);
-
-        idx_t i = 0;
-        try
-        {
-            for (auto it = il.begin(); it != il.end(); it++, i++)
-                std::allocator_traits<Allocator>::construct(_alloc, _data + i, *it);
-        }
-        catch (const std::exception& e)
-        {
-            for (idx_t j = 0; j < i; j++)
-                std::allocator_traits<Allocator>::destroy(_alloc, _data + j);
-
-            std::allocator_traits<Allocator>::deallocate(_alloc, _data, _capacity);
-            _size = _capacity = 0;
-            _data = nullptr;
-            std::cerr << e.what() << std::endl;
-            throw;
-        }
-
+        /* Build with the current allocator before replacing storage. */
+        nuo_vector replacement(_alloc);
+        replacement.ConstructRange(il.begin(), il.size());
+        ReleaseStorage();
+        SwapStorage(replacement);
         return *this;
     }
 
