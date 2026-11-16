@@ -1137,14 +1137,16 @@ NuoDeque<T>::Erase(const_iterator first, const_iterator last)
     {
       NuoCopyBackward(begin_, first1, last1);
       iterator new_begin = begin_ + static_cast<difference_type>(len);
-      data_allocator::Destroy(begin_.cur_, new_begin.cur_);
+      for (iterator it = begin_; it != new_begin; ++it)
+        data_allocator::Destroy(&*it);
       begin_ = new_begin;
     }
     else
     {
       NuoCopy(last1, end_, first1);
       iterator new_end = end_ - static_cast<difference_type>(len);
-      data_allocator::Destroy(new_end.cur_, end_.cur_);
+      for (iterator it = new_end; it != end_; ++it)
+        data_allocator::Destroy(&*it);
       end_ = new_end;
     }
     return begin_ + static_cast<difference_type>(elems_before);

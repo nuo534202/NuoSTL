@@ -150,6 +150,36 @@ void TestNuoDeque::TestResourceLifetime()
 
   {
     DequeLifetimeValue value;
+    {
+      Deque deque(buffer_size - 2, value);
+      deque.Erase(deque.Begin() + 1, deque.End() - 1);
+      assert(deque.Size() == 2);
+      assert(DequeLifetimeValue::live_count == 1 + 2);
+    }
+    assert(DequeLifetimeValue::live_count == 1);
+
+    {
+      Deque deque(buffer_size + 2, value);
+      deque.Erase(deque.Begin(),
+                  deque.Begin() + static_cast<ptrdiff_t>(buffer_size));
+      assert(deque.Size() == 2);
+      assert(DequeLifetimeValue::live_count == 1 + 2);
+    }
+    assert(DequeLifetimeValue::live_count == 1);
+
+    {
+      Deque deque(buffer_size * 4, value);
+      const auto offset = static_cast<ptrdiff_t>(buffer_size / 2);
+      const auto count = static_cast<ptrdiff_t>(buffer_size * 2 + 3);
+      deque.Erase(deque.Begin() + offset, deque.Begin() + offset + count);
+      assert(deque.Size() == buffer_size * 2 - 3);
+      assert(DequeLifetimeValue::live_count == 1 + buffer_size * 2 - 3);
+    }
+  }
+  assert(DequeLifetimeValue::live_count == 0);
+
+  {
+    DequeLifetimeValue value;
     for (int allowance : {0, static_cast<int>(buffer_size) + 2})
     {
       DequeLifetimeValue::copies_before_throw = allowance;
