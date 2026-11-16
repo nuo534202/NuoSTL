@@ -7,6 +7,7 @@
 #include <cstdint>
 #include <functional>
 #include <iterator>
+#include <limits>
 #include <memory>
 #include <stdexcept>
 #include <type_traits>
@@ -82,6 +83,7 @@ struct PackedAllocatorState
   int invalid_deallocations = 0;
   int copy_selector_calls = 0;
   bool fail_allocation = false;
+  std::size_t max_words = std::numeric_limits<std::size_t>::max();
   std::vector<Block> blocks;
 
   void CheckReleased() const
@@ -135,6 +137,11 @@ public:
   int Owner() const noexcept
   {
     return owner_;
+  }
+
+  std::size_t max_size() const noexcept
+  {
+    return state_->max_words;
   }
 
   T* allocate(std::size_t count)
@@ -350,6 +357,82 @@ void CheckAllocatorOwnership()
     lhs.swap(rhs);
     assert(lhs.get_allocator().Owner() == 13 && lhs.size() == 130);
     assert(rhs.get_allocator().Owner() == 12 && rhs.size() == 70);
+  }
+  state.CheckReleased();
+}
+
+void CheckCapacityLimits()
+{
+  PackedAllocatorState state;
+  state.max_words = 16;
+  using Allocator = PackedAllocator<bool>;
+  using Vector = nuostl::nuo_vector<bool, Allocator>;
+  const std::size_t maximum = sizeof(std::uint64_t) * 8 * state.max_words;
+  {
+    Vector values(Allocator(state, 1));
+    assert(values.max_size() == maximum);
+    values.reserve(maximum);
+    assert(values.capacity() == maximum && values.empty());
+
+    const std::size_t stable_capacity = values.capacity();
+    const int stable_allocations = state.allocations;
+    bool caught = false;
+    try
+    {
+      values.reserve(maximum + 1);
+    }
+    catch (const std::length_error&)
+    {
+      caught = true;
+    }
+    assert(caught);
+    assert(values.capacity() == stable_capacity);
+    assert(values.empty());
+    assert(state.allocations == stable_allocations);
+
+    caught = false;
+    try
+    {
+      values.resize(maximum + 1);
+    }
+    catch (const std::length_error&)
+    {
+      caught = true;
+    }
+    assert(caught && values.empty());
+    assert(values.capacity() == stable_capacity);
+  }
+  state.CheckReleased();
+
+  {
+    Vector values(maximum, true, Allocator(state, 2));
+    assert(values.size() == maximum && values.back());
+    bool caught = false;
+    try
+    {
+      values.push_back(false);
+    }
+    catch (const std::length_error&)
+    {
+      caught = true;
+    }
+    assert(caught);
+    assert(values.size() == maximum && values.back());
+  }
+  state.CheckReleased();
+
+  {
+    Vector values(Allocator(state, 3));
+    bool caught = false;
+    try
+    {
+      values.insert(values.cbegin(), maximum + 1, true);
+    }
+    catch (const std::length_error&)
+    {
+      caught = true;
+    }
+    assert(caught && values.empty());
   }
   state.CheckReleased();
 }
@@ -951,6 +1034,7 @@ void TestNuoVectorBool::TestSuite()
 {
   CheckTypeProperties();
   CheckAllocatorOwnership();
+  CheckCapacityLimits();
   CheckConstruction();
   CheckElementAccess();
   CheckCapacity();

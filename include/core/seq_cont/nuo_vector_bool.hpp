@@ -467,6 +467,10 @@ void nuo_vector<bool, Allocator>::MoveBits(size_type destination,
 template <typename Allocator>
 void nuo_vector<bool, Allocator>::ReallocateBits(size_type bits)
 {
+  if (bits > max_size())
+  {
+    throw std::length_error("nuo_vector<bool>: capacity exceeds max_size");
+  }
   const size_type new_word_count = WordCount(bits);
   word_type* new_words =
     word_allocator_traits::allocate(word_alloc_, new_word_count);
@@ -493,6 +497,10 @@ void nuo_vector<bool, Allocator>::ReallocateBits(size_type bits)
 template <typename Allocator>
 void nuo_vector<bool, Allocator>::RequireBits(size_type bits)
 {
+  if (bits > max_size())
+  {
+    throw std::length_error("nuo_vector<bool>: capacity exceeds max_size");
+  }
   if (bits > capacity_)
   {
     ReallocateBits(GrownCapacity(bits));
@@ -503,7 +511,12 @@ template <typename Allocator>
 typename nuo_vector<bool, Allocator>::size_type
 nuo_vector<bool, Allocator>::GrownCapacity(size_type required) const noexcept
 {
-  const size_type doubled = capacity_ == 0 ? kBitsPerWord : capacity_ * 2;
+  const size_type maximum = max_size();
+  size_type doubled = capacity_ == 0 ? kBitsPerWord : required;
+  if (capacity_ != 0 && capacity_ <= maximum - capacity_)
+  {
+    doubled = capacity_ * 2;
+  }
   return doubled > required ? doubled : required;
 }
 
@@ -894,7 +907,14 @@ template <typename Allocator>
 typename nuo_vector<bool, Allocator>::size_type
 nuo_vector<bool, Allocator>::max_size() const noexcept
 {
-  return word_allocator_traits::max_size(word_alloc_) * kBitsPerWord;
+  const size_type maximum_words =
+    word_allocator_traits::max_size(word_alloc_);
+  if (maximum_words > std::numeric_limits<size_type>::max() / kBitsPerWord)
+  {
+    return std::numeric_limits<size_type>::max() / kBitsPerWord *
+           kBitsPerWord;
+  }
+  return maximum_words * kBitsPerWord;
 }
 
 template <typename Allocator>
@@ -907,6 +927,10 @@ nuo_vector<bool, Allocator>::capacity() const noexcept
 template <typename Allocator>
 void nuo_vector<bool, Allocator>::reserve(size_type n)
 {
+  if (n > max_size())
+  {
+    throw std::length_error("nuo_vector<bool>: capacity exceeds max_size");
+  }
   if (n > capacity_)
   {
     ReallocateBits(n);
@@ -1006,6 +1030,10 @@ void nuo_vector<bool, Allocator>::clear() noexcept
 template <typename Allocator>
 void nuo_vector<bool, Allocator>::push_back(bool value)
 {
+  if (size_ == max_size())
+  {
+    throw std::length_error("nuo_vector<bool>: size exceeds max_size");
+  }
   RequireBits(size_ + 1);
   SetBit(size_, value);
   ++size_;
@@ -1036,6 +1064,10 @@ void nuo_vector<bool, Allocator>::resize(size_type n)
 template <typename Allocator>
 void nuo_vector<bool, Allocator>::resize(size_type n, bool value)
 {
+  if (n > max_size())
+  {
+    throw std::length_error("nuo_vector<bool>: size exceeds max_size");
+  }
   if (n < size_)
   {
     ClearBits(n, size_);
@@ -1065,6 +1097,10 @@ typename nuo_vector<bool, Allocator>::iterator
 nuo_vector<bool, Allocator>::insert(const_iterator position, bool value)
 {
   const size_type index = Offset(position);
+  if (size_ == max_size())
+  {
+    throw std::length_error("nuo_vector<bool>: size exceeds max_size");
+  }
   RequireBits(size_ + 1);
   MoveBits(index + 1, index, size_ - index);
   SetBit(index, value);
@@ -1081,6 +1117,10 @@ nuo_vector<bool, Allocator>::insert(const_iterator position, size_type n,
   if (n == 0)
   {
     return iterator(this, index);
+  }
+  if (n > max_size() - size_)
+  {
+    throw std::length_error("nuo_vector<bool>: size exceeds max_size");
   }
   RequireBits(size_ + n);
   MoveBits(index + n, index, size_ - index);
@@ -1126,6 +1166,10 @@ nuo_vector<bool, Allocator>::InsertRange(const_iterator position,
   if (count == 0)
   {
     return iterator(this, index);
+  }
+  if (count > max_size() - size_)
+  {
+    throw std::length_error("nuo_vector<bool>: size exceeds max_size");
   }
   RequireBits(size_ + count);
   MoveBits(index + count, index, size_ - index);
