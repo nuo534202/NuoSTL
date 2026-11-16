@@ -15,10 +15,14 @@ public:
     ~Fraction() = default;
 
 public:
-    Fraction& operator+(const Fraction& frac);
-    Fraction& operator-(const Fraction& frac);
-    Fraction& operator*(const Fraction& frac);
-    Fraction& operator/(const Fraction& frac);
+    Fraction operator+(const Fraction& frac) const;
+    Fraction operator-(const Fraction& frac) const;
+    Fraction operator*(const Fraction& frac) const;
+    Fraction operator/(const Fraction& frac) const;
+    Fraction& operator+=(const Fraction& frac);
+    Fraction& operator-=(const Fraction& frac);
+    Fraction& operator*=(const Fraction& frac);
+    Fraction& operator/=(const Fraction& frac);
     Fraction& operator=(const Fraction& frac);
     bool operator==(const Fraction& frac) const;
     bool operator!=(const Fraction& frac) const;

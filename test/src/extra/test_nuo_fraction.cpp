@@ -38,6 +38,7 @@ void TestFraction::test_fraction()
     test_normalize();
 
     /* Invariants after arithmetic */
+    test_arithmetic_value_semantics();
     test_arithmetic_sign_normalization();
     test_divide_by_zero_fraction();
 }
@@ -499,52 +500,95 @@ void TestFraction::test_normalize()
     nuostl::Fraction f8(1, 2);
     nuostl::Fraction neg(-3, 4);
     nuostl::Fraction result = f8;
-    result / neg;
+    result /= neg;
     /* After /: up = 1*4 = 4, down = 2*(-3) = -6
        Normalize should make down positive.
        After gcd reduction the result should have down_ > 0 */
     assert(result.GetDown() > 0);
 }
 
+void TestFraction::test_arithmetic_value_semantics()
+{
+    const nuostl::Fraction one_half(1, 2);
+    const nuostl::Fraction one_third(1, 3);
+
+    const nuostl::Fraction sum = one_half + one_third;
+    assert(sum == nuostl::Fraction(5, 6));
+    assert(one_half == nuostl::Fraction(1, 2));
+    assert(one_third == nuostl::Fraction(1, 3));
+
+    assert((one_half - one_third) == nuostl::Fraction(1, 6));
+    assert((one_half * one_third) == nuostl::Fraction(1, 6));
+    assert((one_half / one_third) == nuostl::Fraction(3, 2));
+
+    const nuostl::Fraction rvalue_sum =
+        nuostl::Fraction(1, 2) + nuostl::Fraction(1, 3);
+    assert(rvalue_sum == nuostl::Fraction(5, 6));
+
+    const nuostl::Fraction chained =
+        one_half + one_third * nuostl::Fraction(1, 6);
+    assert(chained == nuostl::Fraction(5, 9));
+
+    nuostl::Fraction compound(1, 2);
+    nuostl::Fraction& sum_reference = (compound += nuostl::Fraction(1, 3));
+    assert(&sum_reference == &compound);
+    assert(compound == nuostl::Fraction(5, 6));
+
+    nuostl::Fraction& difference_reference =
+        (compound -= nuostl::Fraction(1, 6));
+    assert(&difference_reference == &compound);
+    assert(compound == nuostl::Fraction(2, 3));
+
+    nuostl::Fraction& product_reference =
+        (compound *= nuostl::Fraction(3, 4));
+    assert(&product_reference == &compound);
+    assert(compound == nuostl::Fraction(1, 2));
+
+    nuostl::Fraction& quotient_reference =
+        (compound /= nuostl::Fraction(1, 4));
+    assert(&quotient_reference == &compound);
+    assert(compound == nuostl::Fraction(2, 1));
+}
+
 void TestFraction::test_arithmetic_sign_normalization()
 {
     /* Subtraction whose result is negative. */
     nuostl::Fraction a(1, 2);
-    a - nuostl::Fraction(3, 4);
+    a -= nuostl::Fraction(3, 4);
     assert(a.GetUp() == -1);
     assert(a.GetDown() == 4);
 
     /* Addition whose result is negative. */
     nuostl::Fraction g(1, 2);
-    g + nuostl::Fraction(-2, 3);
+    g += nuostl::Fraction(-2, 3);
     assert(g.GetUp() == -1);
     assert(g.GetDown() == 6);
 
     /* Multiplication whose result is negative. */
     nuostl::Fraction b(1, 2);
-    b * nuostl::Fraction(-1, 3);
+    b *= nuostl::Fraction(-1, 3);
     assert(b.GetUp() == -1);
     assert(b.GetDown() == 6);
 
     nuostl::Fraction c(-1, 2);
-    c * nuostl::Fraction(1, 3);
+    c *= nuostl::Fraction(1, 3);
     assert(c.GetUp() == -1);
     assert(c.GetDown() == 6);
 
     /* Division moves the divisor numerator sign onto the denominator. */
     nuostl::Fraction d(1, 2);
-    d / nuostl::Fraction(-2, 5);
+    d /= nuostl::Fraction(-2, 5);
     assert(d.GetUp() == -5);
     assert(d.GetDown() == 4);
 
     nuostl::Fraction e(-1, 2);
-    e / nuostl::Fraction(2, 5);
+    e /= nuostl::Fraction(2, 5);
     assert(e.GetUp() == -5);
     assert(e.GetDown() == 4);
 
     /* A positive result keeps a positive denominator. */
     nuostl::Fraction f(-1, 2);
-    f / nuostl::Fraction(-2, 5);
+    f /= nuostl::Fraction(-2, 5);
     assert(f.GetUp() == 5);
     assert(f.GetDown() == 4);
 }
@@ -555,7 +599,7 @@ void TestFraction::test_divide_by_zero_fraction()
     bool caught = false;
     try
     {
-        value / nuostl::Fraction(0, 1);
+        value /= nuostl::Fraction(0, 1);
     }
     catch (const std::invalid_argument&)
     {

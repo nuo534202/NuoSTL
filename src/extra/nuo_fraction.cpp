@@ -20,7 +20,7 @@ Fraction::Fraction(int64 up, int64 down)
     Normalize();
 }
 
-Fraction& Fraction::operator+(const Fraction& frac)
+Fraction Fraction::operator+(const Fraction& frac) const
 {
     int128 lhs_up = static_cast<int128>(up_);
     int128 lhs_down = static_cast<int128>(down_);
@@ -31,14 +31,11 @@ Fraction& Fraction::operator+(const Fraction& frac)
     int128 new_down = lhs_down * rhs_down;
     int64 up_down_gcd = gcd(new_up, new_down);
 
-    up_ = static_cast<int64>(new_up / up_down_gcd);
-    down_ = static_cast<int64>(new_down / up_down_gcd);
-    Normalize();
-
-    return *this;
+    return Fraction(static_cast<int64>(new_up / up_down_gcd),
+                    static_cast<int64>(new_down / up_down_gcd));
 }
 
-Fraction& Fraction::operator-(const Fraction& frac)
+Fraction Fraction::operator-(const Fraction& frac) const
 {
     int128 lhs_up = static_cast<int128>(up_);
     int128 lhs_down = static_cast<int128>(down_);
@@ -49,14 +46,11 @@ Fraction& Fraction::operator-(const Fraction& frac)
     int128 new_down = lhs_down * rhs_down;
     int64 up_down_gcd = gcd(new_up, new_down);
 
-    up_ = static_cast<int64>(new_up / up_down_gcd);
-    down_ = static_cast<int64>(new_down / up_down_gcd);
-    Normalize();
-
-    return *this;
+    return Fraction(static_cast<int64>(new_up / up_down_gcd),
+                    static_cast<int64>(new_down / up_down_gcd));
 }
 
-Fraction& Fraction::operator*(const Fraction& frac)
+Fraction Fraction::operator*(const Fraction& frac) const
 {
     int128 lhs_up = static_cast<int128>(up_);
     int128 lhs_down = static_cast<int128>(down_);
@@ -67,14 +61,11 @@ Fraction& Fraction::operator*(const Fraction& frac)
     int128 new_down = lhs_down * rhs_down;
     int64 up_down_gcd = gcd(new_up, new_down);
 
-    up_ = static_cast<int64>(new_up / up_down_gcd);
-    down_ = static_cast<int64>(new_down / up_down_gcd);
-    Normalize();
-
-    return *this;
+    return Fraction(static_cast<int64>(new_up / up_down_gcd),
+                    static_cast<int64>(new_down / up_down_gcd));
 }
 
-Fraction& Fraction::operator/(const Fraction& frac)
+Fraction Fraction::operator/(const Fraction& frac) const
 {
     if (frac.up_ == 0)
         throw std::invalid_argument("Fraction: cannot divide by zero!");
@@ -88,10 +79,31 @@ Fraction& Fraction::operator/(const Fraction& frac)
     int128 new_down = lhs_down * rhs_up;
     int64 up_down_gcd = gcd(new_up, new_down);
 
-    up_ = static_cast<int64>(new_up / up_down_gcd);
-    down_ = static_cast<int64>(new_down / up_down_gcd);
-    Normalize();
+    return Fraction(static_cast<int64>(new_up / up_down_gcd),
+                    static_cast<int64>(new_down / up_down_gcd));
+}
 
+Fraction& Fraction::operator+=(const Fraction& frac)
+{
+    *this = *this + frac;
+    return *this;
+}
+
+Fraction& Fraction::operator-=(const Fraction& frac)
+{
+    *this = *this - frac;
+    return *this;
+}
+
+Fraction& Fraction::operator*=(const Fraction& frac)
+{
+    *this = *this * frac;
+    return *this;
+}
+
+Fraction& Fraction::operator/=(const Fraction& frac)
+{
+    *this = *this / frac;
     return *this;
 }
 
