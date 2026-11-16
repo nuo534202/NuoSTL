@@ -1,5 +1,6 @@
 #pragma once
 
+#include <cassert>
 #include <cstddef>
 #include <cstdint>
 #include <initializer_list>
@@ -109,11 +110,15 @@ public:
   nuo_vector(const nuo_vector& other);
   nuo_vector(nuo_vector&& other) noexcept;
   nuo_vector(const nuo_vector& other, const Allocator& alloc);
+  nuo_vector(nuo_vector&& other, const Allocator& alloc);
   ~nuo_vector();
 
   /* assign */
   nuo_vector& operator=(const nuo_vector& other);
-  nuo_vector& operator=(nuo_vector&& other) noexcept;
+  nuo_vector& operator=(nuo_vector&& other) noexcept(
+    std::allocator_traits<Allocator>::
+      propagate_on_container_move_assignment::value ||
+    std::allocator_traits<Allocator>::is_always_equal::value);
   nuo_vector& operator=(std::initializer_list<bool> values);
 
   void assign(size_type n, bool value);
@@ -210,6 +215,8 @@ private:
   void RequireBits(size_type bits);
   size_type GrownCapacity(size_type required) const noexcept;
   void DeallocateWords() noexcept;
+  void CopyBits(const nuo_vector& source);
+  void AdoptStorage(nuo_vector& source) noexcept;
   iterator InsertRange(const_iterator position, const nuo_vector& source);
   size_type Offset(const_iterator position) const noexcept;
 
@@ -513,6 +520,35 @@ void nuo_vector<bool, Allocator>::DeallocateWords() noexcept
 }
 
 template <typename Allocator>
+void nuo_vector<bool, Allocator>::CopyBits(const nuo_vector& source)
+{
+  if (source.size_ == 0)
+  {
+    return;
+  }
+  ReallocateBits(source.size_);
+  for (size_type index = 0; index < source.size_; ++index)
+  {
+    if (source.GetBit(index))
+    {
+      SetBit(index, true);
+    }
+  }
+  size_ = source.size_;
+}
+
+template <typename Allocator>
+void nuo_vector<bool, Allocator>::AdoptStorage(nuo_vector& source) noexcept
+{
+  words_ = source.words_;
+  size_ = source.size_;
+  capacity_ = source.capacity_;
+  source.words_ = nullptr;
+  source.size_ = 0;
+  source.capacity_ = 0;
+}
+
+template <typename Allocator>
 typename nuo_vector<bool, Allocator>::size_type
 nuo_vector<bool, Allocator>::Offset(const_iterator position) const noexcept
 {
@@ -599,29 +635,23 @@ nuo_vector<bool, Allocator>::nuo_vector(const nuo_vector& other)
   : words_(nullptr)
   , size_(0)
   , capacity_(0)
-  , alloc_(other.alloc_)
+  , alloc_(std::allocator_traits<Allocator>::
+             select_on_container_copy_construction(other.alloc_))
   , word_alloc_(alloc_)
 {
-  if (other.size_ != 0)
-  {
-    ReallocateBits(other.size_);
-    for (size_type index = 0; index < other.size_; ++index)
-    {
-      if (other.BitAt(other.words_, index))
-      {
-        SetBitAt(words_, index, true);
-      }
-    }
-    size_ = other.size_;
-  }
+  CopyBits(other);
 }
 
 template <typename Allocator>
 nuo_vector<bool, Allocator>::nuo_vector(const nuo_vector& other,
                                         const Allocator& alloc)
-  : nuo_vector(other)
+  : words_(nullptr)
+  , size_(0)
+  , capacity_(0)
+  , alloc_(alloc)
+  , word_alloc_(alloc_)
 {
-  (void)alloc;
+  CopyBits(other);
 }
 
 template <typename Allocator>
@@ -630,11 +660,31 @@ nuo_vector<bool, Allocator>::nuo_vector(nuo_vector&& other) noexcept
   , size_(other.size_)
   , capacity_(other.capacity_)
   , alloc_(std::move(other.alloc_))
-  , word_alloc_(std::move(other.word_alloc_))
+  , word_alloc_(alloc_)
 {
   other.words_ = nullptr;
   other.size_ = 0;
   other.capacity_ = 0;
+}
+
+template <typename Allocator>
+nuo_vector<bool, Allocator>::nuo_vector(nuo_vector&& other,
+                                        const Allocator& alloc)
+  : words_(nullptr)
+  , size_(0)
+  , capacity_(0)
+  , alloc_(alloc)
+  , word_alloc_(alloc_)
+{
+  if (alloc_ == other.alloc_)
+  {
+    AdoptStorage(other);
+  }
+  else
+  {
+    CopyBits(other);
+    other.clear();
+  }
 }
 
 template <typename Allocator>
@@ -651,25 +701,52 @@ nuo_vector<bool, Allocator>::operator=(const nuo_vector& other)
 {
   if (this != &other)
   {
-    nuo_vector copy(other);
-    swap(copy);
+    if constexpr (std::allocator_traits<Allocator>::
+                    propagate_on_container_copy_assignment::value)
+    {
+      const Allocator target_allocator = other.alloc_;
+      nuo_vector replacement(other, target_allocator);
+      DeallocateWords();
+      alloc_ = target_allocator;
+      word_alloc_ = word_allocator(alloc_);
+      AdoptStorage(replacement);
+    }
+    else
+    {
+      nuo_vector replacement(other, alloc_);
+      swap(replacement);
+    }
   }
   return *this;
 }
 
 template <typename Allocator>
 nuo_vector<bool, Allocator>&
-nuo_vector<bool, Allocator>::operator=(nuo_vector&& other) noexcept
+nuo_vector<bool, Allocator>::operator=(nuo_vector&& other) noexcept(
+  std::allocator_traits<Allocator>::
+    propagate_on_container_move_assignment::value ||
+  std::allocator_traits<Allocator>::is_always_equal::value)
 {
   if (this != &other)
   {
-    DeallocateWords();
-    words_ = other.words_;
-    size_ = other.size_;
-    capacity_ = other.capacity_;
-    other.words_ = nullptr;
-    other.size_ = 0;
-    other.capacity_ = 0;
+    if constexpr (std::allocator_traits<Allocator>::
+                    propagate_on_container_move_assignment::value)
+    {
+      DeallocateWords();
+      alloc_ = std::move(other.alloc_);
+      word_alloc_ = word_allocator(alloc_);
+      AdoptStorage(other);
+    }
+    else if (alloc_ == other.alloc_)
+    {
+      DeallocateWords();
+      AdoptStorage(other);
+    }
+    else
+    {
+      nuo_vector replacement(std::move(other), alloc_);
+      swap(replacement);
+    }
   }
   return *this;
 }
@@ -1094,6 +1171,22 @@ nuo_vector<bool, Allocator>::erase(const_iterator first, const_iterator last)
 template <typename Allocator>
 void nuo_vector<bool, Allocator>::swap(nuo_vector& other) noexcept
 {
+  if constexpr (std::allocator_traits<Allocator>::
+                  propagate_on_container_swap::value)
+  {
+    using std::swap;
+    swap(alloc_, other.alloc_);
+    word_alloc_ = word_allocator(alloc_);
+    other.word_alloc_ = word_allocator(other.alloc_);
+  }
+  else
+  {
+    assert(alloc_ == other.alloc_);
+    if (alloc_ != other.alloc_)
+    {
+      return;
+    }
+  }
   word_type* words = words_;
   words_ = other.words_;
   other.words_ = words;
@@ -1103,9 +1196,6 @@ void nuo_vector<bool, Allocator>::swap(nuo_vector& other) noexcept
   const size_type capacity = capacity_;
   capacity_ = other.capacity_;
   other.capacity_ = capacity;
-  using std::swap;
-  swap(alloc_, other.alloc_);
-  swap(word_alloc_, other.word_alloc_);
 }
 
 /* Convenience alias matching the roadmap name. */

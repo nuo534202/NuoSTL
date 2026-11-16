@@ -4,6 +4,7 @@
 
 #include <algorithm>
 #include <cstddef>
+#include <cstdint>
 #include <functional>
 #include <iterator>
 #include <memory>
@@ -67,6 +68,136 @@ public:
   static inline std::size_t deallocation_calls = 0;
 };
 
+struct PackedAllocatorState
+{
+  struct Block
+  {
+    void* pointer;
+    std::size_t count;
+    int owner;
+  };
+
+  int allocations = 0;
+  int deallocations = 0;
+  int invalid_deallocations = 0;
+  int copy_selector_calls = 0;
+  bool fail_allocation = false;
+  std::vector<Block> blocks;
+
+  void CheckReleased() const
+  {
+    assert(allocations == deallocations);
+    assert(invalid_deallocations == 0);
+    assert(blocks.empty());
+  }
+};
+
+template <typename T,
+          bool CopyPropagate = false,
+          bool MovePropagate = false,
+          bool SwapPropagate = false>
+class PackedAllocator
+{
+public:
+  using value_type = T;
+  using propagate_on_container_copy_assignment =
+    std::bool_constant<CopyPropagate>;
+  using propagate_on_container_move_assignment =
+    std::bool_constant<MovePropagate>;
+  using propagate_on_container_swap = std::bool_constant<SwapPropagate>;
+  using is_always_equal = std::false_type;
+
+  template <typename U>
+  struct rebind
+  {
+    using other = PackedAllocator<
+      U, CopyPropagate, MovePropagate, SwapPropagate>;
+  };
+
+  PackedAllocator(PackedAllocatorState& state, int owner)
+    : state_(&state), owner_(owner)
+  {
+  }
+
+  template <typename U>
+  PackedAllocator(const PackedAllocator<
+                  U, CopyPropagate, MovePropagate, SwapPropagate>& other) noexcept
+    : state_(other.state_), owner_(other.owner_)
+  {
+  }
+
+  PackedAllocator select_on_container_copy_construction() const
+  {
+    ++state_->copy_selector_calls;
+    return PackedAllocator(*state_, owner_ + 100);
+  }
+
+  int Owner() const noexcept
+  {
+    return owner_;
+  }
+
+  T* allocate(std::size_t count)
+  {
+    if (state_->fail_allocation)
+    {
+      throw std::bad_alloc();
+    }
+    T* pointer = std::allocator<T>().allocate(count);
+    try
+    {
+      state_->blocks.push_back({pointer, count, owner_});
+    }
+    catch (...)
+    {
+      std::allocator<T>().deallocate(pointer, count);
+      throw;
+    }
+    ++state_->allocations;
+    return pointer;
+  }
+
+  void deallocate(T* pointer, std::size_t count) noexcept
+  {
+    const auto block = std::find_if(
+      state_->blocks.begin(), state_->blocks.end(),
+      [pointer](const PackedAllocatorState::Block& candidate)
+      {
+        return candidate.pointer == pointer;
+      });
+    if (block == state_->blocks.end() || block->owner != owner_ ||
+        block->count != count)
+    {
+      ++state_->invalid_deallocations;
+      return;
+    }
+    std::allocator<T>().deallocate(pointer, count);
+    state_->blocks.erase(block);
+    ++state_->deallocations;
+  }
+
+  template <typename U>
+  bool operator==(const PackedAllocator<U, CopyPropagate, MovePropagate,
+                                        SwapPropagate>& other) const noexcept
+  {
+    return state_ == other.state_ && owner_ == other.owner_;
+  }
+
+  template <typename U>
+  bool operator!=(const PackedAllocator<U, CopyPropagate, MovePropagate,
+                                        SwapPropagate>& other) const noexcept
+  {
+    return !(*this == other);
+  }
+
+  template <typename, bool, bool, bool>
+  friend class PackedAllocator;
+
+private:
+  PackedAllocatorState* state_;
+  int owner_;
+};
+
 bool SampleValue(std::size_t index)
 {
   return (index * 7 + 3) % 5 < 2;
@@ -93,6 +224,134 @@ void CheckTypeProperties()
   static_assert(!std::is_same_v<
     nuostl::nuo_vector<bool, std::allocator<bool>>,
     nuostl::nuo_vector<int, std::allocator<int>>>);
+  static_assert(std::is_nothrow_move_assignable_v<BoolVector>);
+  static_assert(!std::is_nothrow_move_assignable_v<
+                nuostl::nuo_vector<bool, PackedAllocator<bool>>>);
+}
+
+void CheckAllocatorOwnership()
+{
+  PackedAllocatorState state;
+  {
+    using Allocator = PackedAllocator<bool>;
+    using Vector = nuostl::nuo_vector<bool, Allocator>;
+    Vector source(130, true, Allocator(state, 1));
+    Vector copied(source);
+    assert(copied.get_allocator().Owner() == 101);
+    assert(state.copy_selector_calls == 1);
+
+    Vector explicitly_copied(source, Allocator(state, 2));
+    assert(explicitly_copied.get_allocator().Owner() == 2);
+    assert(explicitly_copied.size() == source.size());
+    assert(explicitly_copied[0] && explicitly_copied[129]);
+
+    Vector moved(std::move(source), Allocator(state, 3));
+    assert(moved.get_allocator().Owner() == 3);
+    assert(moved.size() == 130 && moved[129]);
+    assert(source.empty());
+  }
+  state.CheckReleased();
+
+  {
+    using Allocator = PackedAllocator<bool, true, false, false>;
+    using Vector = nuostl::nuo_vector<bool, Allocator>;
+    Vector target(70, false, Allocator(state, 4));
+    Vector source(130, true, Allocator(state, 5));
+    state.fail_allocation = true;
+    bool caught = false;
+    try
+    {
+      target = source;
+    }
+    catch (const std::bad_alloc&)
+    {
+      caught = true;
+    }
+    state.fail_allocation = false;
+    assert(caught && target.size() == 70 && !target[0]);
+    assert(target.get_allocator().Owner() == 4);
+    assert(source.size() == 130 && source[129]);
+    target = source;
+    assert(target.get_allocator().Owner() == 5);
+    assert(target.size() == 130 && target[129]);
+    assert(source.size() == 130 && source[129]);
+  }
+  state.CheckReleased();
+
+  {
+    using Allocator = PackedAllocator<bool>;
+    using Vector = nuostl::nuo_vector<bool, Allocator>;
+    Vector target(70, false, Allocator(state, 6));
+    Vector source(130, true, Allocator(state, 7));
+    state.fail_allocation = true;
+    bool caught = false;
+    try
+    {
+      target = source;
+    }
+    catch (const std::bad_alloc&)
+    {
+      caught = true;
+    }
+    state.fail_allocation = false;
+    assert(caught && target.size() == 70 && !target[0]);
+    assert(target.get_allocator().Owner() == 6);
+    assert(source.size() == 130 && source[129]);
+    target = source;
+    assert(target.get_allocator().Owner() == 6);
+    assert(target.size() == 130 && target[129]);
+    assert(source.size() == 130 && source[129]);
+  }
+  state.CheckReleased();
+
+  {
+    using Allocator = PackedAllocator<bool, false, true, false>;
+    using Vector = nuostl::nuo_vector<bool, Allocator>;
+    Vector target(70, false, Allocator(state, 8));
+    Vector source(130, true, Allocator(state, 9));
+    target = std::move(source);
+    assert(target.get_allocator().Owner() == 9);
+    assert(target.size() == 130 && target[129]);
+    assert(source.empty());
+  }
+  state.CheckReleased();
+
+  {
+    using Allocator = PackedAllocator<bool>;
+    using Vector = nuostl::nuo_vector<bool, Allocator>;
+    Vector target(130, true, Allocator(state, 10));
+    Vector source(130, true, Allocator(state, 11));
+    state.fail_allocation = true;
+    bool caught = false;
+    try
+    {
+      target = std::move(source);
+    }
+    catch (const std::bad_alloc&)
+    {
+      caught = true;
+    }
+    state.fail_allocation = false;
+    assert(caught && target.size() == 130 && target[129]);
+    assert(target.get_allocator().Owner() == 10);
+    assert(source.size() == 130 && source[129]);
+    target = std::move(source);
+    assert(target.get_allocator().Owner() == 10);
+    assert(target.size() == 130 && target[129]);
+    assert(source.empty());
+  }
+  state.CheckReleased();
+
+  {
+    using Allocator = PackedAllocator<bool, false, false, true>;
+    using Vector = nuostl::nuo_vector<bool, Allocator>;
+    Vector lhs(70, true, Allocator(state, 12));
+    Vector rhs(130, true, Allocator(state, 13));
+    lhs.swap(rhs);
+    assert(lhs.get_allocator().Owner() == 13 && lhs.size() == 130);
+    assert(rhs.get_allocator().Owner() == 12 && rhs.size() == 70);
+  }
+  state.CheckReleased();
 }
 
 void CheckConstruction()
@@ -691,6 +950,7 @@ void CheckSelfRange()
 void TestNuoVectorBool::TestSuite()
 {
   CheckTypeProperties();
+  CheckAllocatorOwnership();
   CheckConstruction();
   CheckElementAccess();
   CheckCapacity();
