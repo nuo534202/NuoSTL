@@ -1,5 +1,6 @@
 #pragma once
 
+#include <cstddef>
 #include <new>
 #include <type_traits>
 
@@ -68,19 +69,28 @@ public:
   /* destroy object */
   static void Destroy(T* ptr);
   static void Destroy(T* first, T* last);
+
+private:
+  static constexpr bool NeedsAlignedAllocation() noexcept;
+  static pointer AllocateBytes(size_type bytes);
+  static void DeallocateBytes(pointer ptr) noexcept;
 };
 
 template <typename T>
 typename NuoAllocator<T>::pointer NuoAllocator<T>::allocate(size_type n)
 {
-  return static_cast<pointer>(::operator new(n * sizeof(T)));
+  if (n == 0)
+    return nullptr;
+  if (n > max_size())
+    throw std::bad_alloc();
+  return AllocateBytes(n * sizeof(T));
 }
 
 template <typename T>
 void NuoAllocator<T>::deallocate(pointer ptr, size_type n)
 {
   (void)n;
-  ::operator delete(ptr);
+  DeallocateBytes(ptr);
 }
 
 template <typename T>
@@ -88,6 +98,46 @@ typename NuoAllocator<T>::size_type
 NuoAllocator<T>::max_size() const noexcept
 {
   return static_cast<size_type>(-1) / sizeof(T);
+}
+
+template <typename T>
+constexpr bool NuoAllocator<T>::NeedsAlignedAllocation() noexcept
+{
+#if defined(__STDCPP_DEFAULT_NEW_ALIGNMENT__)
+  return alignof(T) > __STDCPP_DEFAULT_NEW_ALIGNMENT__;
+#else
+  return alignof(T) > alignof(std::max_align_t);
+#endif
+}
+
+template <typename T>
+typename NuoAllocator<T>::pointer
+NuoAllocator<T>::AllocateBytes(size_type bytes)
+{
+  if constexpr (NeedsAlignedAllocation())
+  {
+    return static_cast<pointer>(
+      ::operator new(bytes, std::align_val_t(alignof(T))));
+  }
+  else
+  {
+    return static_cast<pointer>(::operator new(bytes));
+  }
+}
+
+template <typename T>
+void NuoAllocator<T>::DeallocateBytes(pointer ptr) noexcept
+{
+  if (ptr == nullptr)
+    return;
+  if constexpr (NeedsAlignedAllocation())
+  {
+    ::operator delete(ptr, std::align_val_t(alignof(T)));
+  }
+  else
+  {
+    ::operator delete(ptr);
+  }
 }
 
 template <typename T>
@@ -107,7 +157,7 @@ void NuoAllocator<T>::destroy(U* ptr)
 template <typename T>
 T* NuoAllocator<T>::Allocate()
 {
-  return static_cast<T*>(::operator new(sizeof(T)));
+  return AllocateBytes(sizeof(T));
 }
 
 template <typename T>
@@ -115,7 +165,9 @@ T* NuoAllocator<T>::Allocate(size_type n)
 {
   if (n == 0)
     return nullptr;
-  return static_cast<T*>(::operator new(n * sizeof(T)));
+  if (n > NuoAllocator<T>().max_size())
+    throw std::bad_alloc();
+  return AllocateBytes(n * sizeof(T));
 }
 
 template <typename T>
@@ -123,7 +175,7 @@ void NuoAllocator<T>::Deallocate(T* ptr)
 {
   if (ptr == nullptr)
     return;
-  ::operator delete(ptr);
+  DeallocateBytes(ptr);
 }
 
 template <typename T>
@@ -132,7 +184,7 @@ void NuoAllocator<T>::Deallocate(T* ptr, size_type n)
   (void)n;
   if (ptr == nullptr)
     return;
-  ::operator delete(ptr);
+  DeallocateBytes(ptr);
 }
 
 template <typename T>

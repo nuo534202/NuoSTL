@@ -178,6 +178,49 @@ void CheckOverAlignedObjects()
   assert(Allocator::Pool().BlocksInUse() == 0);
 }
 
+void CheckNuoAllocatorSizeAndAlignment()
+{
+  using IntAllocator = nuostl::NuoAllocator<int>;
+  IntAllocator ints;
+  const std::size_t maximum = ints.max_size();
+
+  bool member_overflow_caught = false;
+  try
+  {
+    ints.allocate(maximum + 1);
+  }
+  catch (const std::bad_alloc&)
+  {
+    member_overflow_caught = true;
+  }
+  assert(member_overflow_caught);
+
+  bool static_overflow_caught = false;
+  try
+  {
+    IntAllocator::Allocate(maximum + 1);
+  }
+  catch (const std::bad_alloc&)
+  {
+    static_overflow_caught = true;
+  }
+  assert(static_overflow_caught);
+
+  using AlignedAllocator = nuostl::NuoAllocator<OverAligned>;
+  AlignedAllocator aligned_allocator;
+  OverAligned* aligned_array = aligned_allocator.allocate(2);
+  assert(aligned_array != nullptr);
+  assert(reinterpret_cast<std::uintptr_t>(aligned_array) % alignof(OverAligned) ==
+         0);
+  aligned_allocator.deallocate(aligned_array, 2);
+
+  OverAligned* static_aligned = AlignedAllocator::Allocate();
+  assert(static_aligned != nullptr);
+  assert(reinterpret_cast<std::uintptr_t>(static_aligned) %
+           alignof(OverAligned) == 0);
+  AlignedAllocator::Deallocate(static_aligned);
+}
+
 void CheckNodeAllocator()
 {
   using NodeAllocator = nuostl::NuoPoolAllocator<Node, 32>;
@@ -276,6 +319,7 @@ void TestNuoPoolAllocator::TestSuite()
 {
   CheckRawPool();
   CheckAllocatorRequirements();
+  CheckNuoAllocatorSizeAndAlignment();
   CheckOverAlignedObjects();
   CheckNodeAllocator();
   CheckStandardContainers();
