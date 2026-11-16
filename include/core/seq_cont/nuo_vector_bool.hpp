@@ -25,6 +25,9 @@ namespace nuostl
 template <typename Allocator>
 class nuo_vector<bool, Allocator>
 {
+  template <bool IsConst>
+  class IteratorBase;
+
 public:
   using value_type      = bool;
   using allocator_type  = Allocator;
@@ -75,6 +78,9 @@ public:
   private:
     friend class nuo_vector<bool, Allocator>;
 
+    template <bool>
+    friend class IteratorBase;
+
     reference(nuo_vector* owner, size_type position) noexcept
       : owner_(owner)
       , position_(position)
@@ -86,9 +92,6 @@ public:
   };
 
   using const_reference = bool;
-
-  template <bool IsConst>
-  class IteratorBase;
 
   using iterator = IteratorBase<false>;
   using const_iterator = IteratorBase<true>;

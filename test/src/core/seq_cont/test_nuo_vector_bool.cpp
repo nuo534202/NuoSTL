@@ -849,6 +849,27 @@ void CheckIterators()
   {
     assert(static_cast<bool>(sorted[index]) == expected_reversed[index]);
   }
+
+  nuostl::nuo_vector<bool> mutable_values{false, true};
+  nuostl::nuo_vector<bool>::iterator mutable_iterator =
+    mutable_values.begin();
+  *mutable_iterator = true;
+  mutable_iterator[1] = false;
+  assert(mutable_values[0] && !mutable_values[1]);
+
+  mutable_values[1].flip();
+  assert(mutable_values[0] && mutable_values[1]);
+  std::iter_swap(mutable_values.begin(), mutable_values.begin() + 1);
+  assert(mutable_values[0] && mutable_values[1]);
+
+  mutable_values[0] = false;
+  std::iter_swap(mutable_values.begin(), mutable_values.begin() + 1);
+  assert(mutable_values[0] && !mutable_values[1]);
+
+  nuostl::nuo_vector<bool>::const_iterator converted =
+    mutable_values.begin();
+  assert(converted == mutable_values.cbegin());
+  assert(static_cast<bool>(*converted) == mutable_values[0]);
 }
 
 void CheckPackedStorage()
