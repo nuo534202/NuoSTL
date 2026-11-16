@@ -12,6 +12,7 @@ private:
     static void TestConstructionCleanup();
     static void TestAssignmentOwnership();
     static void TestInitializerListAssignment();
+    static void TestReserveSafety();
     static void test_destructor();
     
     static void test_operator_assign();

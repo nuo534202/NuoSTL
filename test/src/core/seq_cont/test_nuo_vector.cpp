@@ -23,6 +23,9 @@ namespace test
 namespace
 {
 
+/* Keep the cap small so capacity-limit tests allocate little memory. */
+constexpr std::size_t kVectorAssignmentMaxSize = 1024;
+
 struct VectorAssignmentState
 {
     struct Block
@@ -78,6 +81,57 @@ void VectorAssignmentState::CheckOwnership() const
 {
     NUO_TEST_CHECK(invalid_destructions == 0);
     NUO_TEST_CHECK(wrong_deallocations == 0);
+}
+
+template <typename Callable>
+bool RunVectorFailureProbe(
+    VectorAssignmentState& state,
+    int successful_constructions,
+    bool fail_allocation,
+    bool nonstandard_exception,
+    Callable&& callable)
+{
+    struct FailureInjectionGuard
+    {
+        explicit FailureInjectionGuard(VectorAssignmentState& value)
+            : state(value)
+        {
+        }
+
+        ~FailureInjectionGuard()
+        {
+            state.fail_allocation = false;
+            state.constructions_before_throw = -1;
+            state.nonstandard_exception = false;
+        }
+
+        VectorAssignmentState& state;
+    };
+
+    state.fail_allocation = fail_allocation;
+    state.constructions_before_throw =
+        fail_allocation ? -1 : successful_constructions;
+    state.nonstandard_exception = nonstandard_exception;
+    FailureInjectionGuard guard(state);
+    bool caught = false;
+    try
+    {
+        std::forward<Callable>(callable)();
+    }
+    catch (const std::bad_alloc&)
+    {
+        caught = fail_allocation;
+    }
+    catch (const std::runtime_error& error)
+    {
+        caught = !fail_allocation && !nonstandard_exception &&
+                 std::string(error.what()) == "vector assignment failed";
+    }
+    catch (int error)
+    {
+        caught = !fail_allocation && nonstandard_exception && error == 42;
+    }
+    return caught;
 }
 
 struct VectorAssignmentValue
@@ -196,6 +250,11 @@ struct VectorAssignmentAllocator
         ++state->deallocations;
     }
 
+    std::size_t max_size() const noexcept
+    {
+        return kVectorAssignmentMaxSize;
+    }
+
     template <typename U, typename... Args>
     void construct(U* pointer, Args&&... args)
     {
@@ -301,30 +360,12 @@ void CheckCopyAssignmentFailure(bool fail_allocation,
         Vector target(2, target_seed, Allocator(state, 1));
         Vector source(4, source_seed, Allocator(state, 2));
         const auto* original_data = target.data();
-        state.fail_allocation = fail_allocation;
-        state.constructions_before_throw = fail_allocation ? -1 : 1;
-        state.nonstandard_exception = nonstandard_exception;
-        bool caught = false;
-        try
-        {
-            target = source;
-        }
-        catch (const std::bad_alloc&)
-        {
-            caught = fail_allocation;
-        }
-        catch (const std::runtime_error& error)
-        {
-            caught = !fail_allocation && !nonstandard_exception &&
-                     std::string(error.what()) == "vector assignment failed";
-        }
-        catch (int error)
-        {
-            caught = !fail_allocation && nonstandard_exception && error == 42;
-        }
-        state.fail_allocation = false;
-        state.constructions_before_throw = -1;
-        state.nonstandard_exception = false;
+        const bool caught = RunVectorFailureProbe(
+            state, 1, fail_allocation, nonstandard_exception,
+            [&target, &source]
+            {
+                target = source;
+            });
         NUO_TEST_CHECK(caught);
         NUO_TEST_CHECK(target.data() == original_data);
         CheckAssignmentValues(target, 2, 9);
@@ -414,32 +455,12 @@ void CheckMoveAssignmentFailure(bool fail_allocation,
         }
         else
         {
-            state.fail_allocation = fail_allocation;
-            state.constructions_before_throw = fail_allocation ? -1 : 1;
-            state.nonstandard_exception = nonstandard_exception;
-            bool caught = false;
-            try
-            {
-                target = std::move(source);
-            }
-            catch (const std::bad_alloc&)
-            {
-                caught = fail_allocation;
-            }
-            catch (const std::runtime_error& error)
-            {
-                caught = !fail_allocation && !nonstandard_exception &&
-                         std::string(error.what()) ==
-                             "vector assignment failed";
-            }
-            catch (int error)
-            {
-                caught = !fail_allocation && nonstandard_exception &&
-                         error == 42;
-            }
-            state.fail_allocation = false;
-            state.constructions_before_throw = -1;
-            state.nonstandard_exception = false;
+            const bool caught = RunVectorFailureProbe(
+                state, 1, fail_allocation, nonstandard_exception,
+                [&target, &source]
+                {
+                    target = std::move(source);
+                });
             NUO_TEST_CHECK(caught);
             NUO_TEST_CHECK(target.data() == original_target_data);
             CheckAssignmentValues(target, 2, 9);
@@ -530,36 +551,310 @@ void CheckInitializerListAssignmentFailure(int successful_constructions,
             VectorAssignmentValue(state, 1),
             VectorAssignmentValue(state, 2),
             VectorAssignmentValue(state, 3)};
-        state.fail_allocation = fail_allocation;
-        state.constructions_before_throw =
-            fail_allocation ? -1 : successful_constructions;
-        state.nonstandard_exception = nonstandard_exception;
-        bool caught = false;
-        try
-        {
-            target = values;
-        }
-        catch (const std::bad_alloc&)
-        {
-            caught = fail_allocation;
-        }
-        catch (const std::runtime_error& error)
-        {
-            caught = !fail_allocation && !nonstandard_exception &&
-                     std::string(error.what()) == "vector assignment failed";
-        }
-        catch (int error)
-        {
-            caught = !fail_allocation && nonstandard_exception && error == 42;
-        }
-        state.fail_allocation = false;
-        state.constructions_before_throw = -1;
-        state.nonstandard_exception = false;
+        const bool caught = RunVectorFailureProbe(
+            state, successful_constructions, fail_allocation,
+            nonstandard_exception,
+            [&target, &values]
+            {
+                target = values;
+            });
         NUO_TEST_CHECK(caught);
         NUO_TEST_CHECK(target.data() == original_data);
         CheckAssignmentValues(target, 2, 9);
         CheckAssignmentStorage(target, state);
         NUO_TEST_CHECK(target.get_allocator().owner == 5);
+    }
+    state.CheckReleased();
+}
+
+void CheckReserveSuccess()
+{
+    static_assert(!std::is_nothrow_move_constructible_v<VectorAssignmentValue>);
+    using Allocator = VectorAssignmentAllocator<VectorAssignmentValue>;
+    using Vector = nuostl::nuo_vector<VectorAssignmentValue, Allocator>;
+    VectorAssignmentState state;
+    {
+        VectorAssignmentValue seed(state, 0);
+        Vector values(3, seed, Allocator(state, 6));
+        for (std::size_t i = 0; i < values.size(); ++i)
+        {
+            values[i].value = static_cast<int>(i + 1);
+        }
+        const auto allocations_before_reserve = state.allocations;
+        const auto deallocations_before_reserve = state.deallocations;
+        values.reserve(8);
+        const auto allocations_before_noop = state.allocations;
+        const auto moves_before_noop = state.moves;
+        const auto* stable_data = values.data();
+        values.reserve(values.capacity());
+        NUO_TEST_CHECK(values.data() == stable_data);
+        NUO_TEST_CHECK(state.allocations == allocations_before_noop);
+        NUO_TEST_CHECK(state.moves == moves_before_noop);
+        NUO_TEST_CHECK(state.allocations == allocations_before_reserve + 1);
+        NUO_TEST_CHECK(state.deallocations ==
+                       deallocations_before_reserve + 1);
+        NUO_TEST_CHECK(values.size() == 3);
+        NUO_TEST_CHECK(values.capacity() >= 8);
+        for (std::size_t i = 0; i < values.size(); ++i)
+        {
+            NUO_TEST_CHECK(values[i].value == static_cast<int>(i + 1));
+        }
+        CheckAssignmentStorage(values, state);
+        NUO_TEST_CHECK(state.moves == 0);
+        NUO_TEST_CHECK(values.get_allocator().owner == 6);
+    }
+    state.CheckReleased();
+}
+
+void CheckReserveEmptyAndLimits()
+{
+    using Allocator = VectorAssignmentAllocator<VectorAssignmentValue>;
+    using Vector = nuostl::nuo_vector<VectorAssignmentValue, Allocator>;
+    VectorAssignmentState state;
+    {
+        Vector values(Allocator(state, 9));
+        values.reserve(4);
+        NUO_TEST_CHECK(values.empty());
+        NUO_TEST_CHECK(values.capacity() >= 4);
+        values.emplace_back(state, 5);
+        NUO_TEST_CHECK(values.size() == 1);
+        NUO_TEST_CHECK(values[0].value == 5);
+        CheckAssignmentStorage(values, state);
+        NUO_TEST_CHECK(values.get_allocator().owner == 9);
+
+        Vector failed_values(Allocator(state, 10));
+        const auto allocations_before_failure = state.allocations;
+        const auto blocks_before_failure = state.blocks.size();
+        const bool caught = RunVectorFailureProbe(
+            state, 0, true, false,
+            [&failed_values]
+            {
+                failed_values.reserve(4);
+            });
+        NUO_TEST_CHECK(caught);
+        NUO_TEST_CHECK(failed_values.empty());
+        NUO_TEST_CHECK(failed_values.capacity() == 0);
+        NUO_TEST_CHECK(state.allocations == allocations_before_failure);
+        NUO_TEST_CHECK(state.blocks.size() == blocks_before_failure);
+        CheckAssignmentStorage(failed_values, state);
+        NUO_TEST_CHECK(failed_values.get_allocator().owner == 10);
+
+        Vector oversized(Allocator(state, 12));
+        NUO_TEST_CHECK(oversized.max_size() == kVectorAssignmentMaxSize);
+        const auto allocations_before_oversized = state.allocations;
+        const auto blocks_before_oversized = state.blocks.size();
+        bool length_error_caught = false;
+        try
+        {
+            oversized.reserve(oversized.max_size() + 1);
+        }
+        catch (const std::length_error&)
+        {
+            length_error_caught = true;
+        }
+        NUO_TEST_CHECK(length_error_caught);
+        NUO_TEST_CHECK(oversized.empty());
+        NUO_TEST_CHECK(oversized.capacity() == 0);
+        NUO_TEST_CHECK(state.allocations == allocations_before_oversized);
+        NUO_TEST_CHECK(state.blocks.size() == blocks_before_oversized);
+        CheckAssignmentStorage(oversized, state);
+        NUO_TEST_CHECK(oversized.get_allocator().owner == 12);
+    }
+    state.CheckReleased();
+}
+
+void CheckReserveOversizedNonEmpty()
+{
+    using Allocator = VectorAssignmentAllocator<VectorAssignmentValue>;
+    using Vector = nuostl::nuo_vector<VectorAssignmentValue, Allocator>;
+    VectorAssignmentState state;
+    {
+        Vector values(Allocator(state, 13));
+        values.reserve(4);
+        values.emplace_back(state, 1);
+        values.emplace_back(state, 2);
+        values.emplace_back(state, 3);
+        NUO_TEST_CHECK(values.max_size() == kVectorAssignmentMaxSize);
+        const auto* no_op_data = values.data();
+        const auto no_op_capacity = values.capacity();
+        const auto allocations_before_no_op = state.allocations;
+        values.reserve(2);
+        NUO_TEST_CHECK(values.data() == no_op_data);
+        NUO_TEST_CHECK(values.capacity() == no_op_capacity);
+        NUO_TEST_CHECK(state.allocations == allocations_before_no_op);
+        const auto allocations_before_limit = state.allocations;
+        values.reserve(values.max_size());
+        NUO_TEST_CHECK(values.size() == 3);
+        NUO_TEST_CHECK(values.capacity() >= values.max_size());
+        NUO_TEST_CHECK(state.allocations == allocations_before_limit + 1);
+        for (std::size_t i = 0; i < values.size(); ++i)
+        {
+            NUO_TEST_CHECK(values[i].value == static_cast<int>(i + 1));
+        }
+        CheckAssignmentStorage(values, state);
+        const auto* original_data = values.data();
+        const auto original_capacity = values.capacity();
+        const auto allocations_before_oversized = state.allocations;
+        const auto deallocations_before_oversized = state.deallocations;
+        const auto blocks_before_oversized = state.blocks.size();
+        bool length_error_caught = false;
+        try
+        {
+            values.reserve(values.max_size() + 1);
+        }
+        catch (const std::length_error&)
+        {
+            length_error_caught = true;
+        }
+        NUO_TEST_CHECK(length_error_caught);
+        NUO_TEST_CHECK(values.data() == original_data);
+        NUO_TEST_CHECK(values.size() == 3);
+        NUO_TEST_CHECK(values.capacity() == original_capacity);
+        NUO_TEST_CHECK(state.allocations == allocations_before_oversized);
+        NUO_TEST_CHECK(state.deallocations == deallocations_before_oversized);
+        NUO_TEST_CHECK(state.blocks.size() == blocks_before_oversized);
+        for (std::size_t i = 0; i < values.size(); ++i)
+        {
+            NUO_TEST_CHECK(values[i].value == static_cast<int>(i + 1));
+        }
+        CheckAssignmentStorage(values, state);
+        NUO_TEST_CHECK(values.get_allocator().owner == 13);
+    }
+    state.CheckReleased();
+}
+
+void CheckReserveFailure(int successful_constructions,
+                         bool fail_allocation,
+                         bool nonstandard_exception)
+{
+    NUO_TEST_CHECK(!fail_allocation || successful_constructions == 0);
+    using Allocator = VectorAssignmentAllocator<VectorAssignmentValue>;
+    using Vector = nuostl::nuo_vector<VectorAssignmentValue, Allocator>;
+    VectorAssignmentState state;
+    {
+        VectorAssignmentValue seed(state, 0);
+        Vector values(3, seed, Allocator(state, 7));
+        for (std::size_t i = 0; i < values.size(); ++i)
+        {
+            values[i].value = static_cast<int>(i + 1);
+        }
+        const auto* original_data = values.data();
+        const auto original_capacity = values.capacity();
+        const bool caught = RunVectorFailureProbe(
+            state, successful_constructions, fail_allocation,
+            nonstandard_exception,
+            [&values, original_capacity]
+            {
+                values.reserve(original_capacity + 4);
+            });
+        NUO_TEST_CHECK(caught);
+        NUO_TEST_CHECK(values.data() == original_data);
+        NUO_TEST_CHECK(values.size() == 3);
+        NUO_TEST_CHECK(values.capacity() == original_capacity);
+        for (std::size_t i = 0; i < values.size(); ++i)
+        {
+            NUO_TEST_CHECK(values[i].value == static_cast<int>(i + 1));
+        }
+        CheckAssignmentStorage(values, state);
+        NUO_TEST_CHECK(values.get_allocator().owner == 7);
+    }
+    state.CheckReleased();
+}
+
+template <bool Throws>
+struct VectorReserveMoveOnly
+{
+    VectorReserveMoveOnly(VectorAssignmentState& owner_state, int value);
+    VectorReserveMoveOnly(const VectorReserveMoveOnly&) = delete;
+    VectorReserveMoveOnly(VectorReserveMoveOnly&& other) noexcept(!Throws);
+    VectorReserveMoveOnly& operator=(const VectorReserveMoveOnly&) = delete;
+    VectorReserveMoveOnly& operator=(VectorReserveMoveOnly&&) = delete;
+    ~VectorReserveMoveOnly();
+
+    VectorAssignmentState* state;
+    int value;
+};
+
+template <bool Throws>
+VectorReserveMoveOnly<Throws>::VectorReserveMoveOnly(
+    VectorAssignmentState& owner_state, int value)
+    : state(&owner_state), value(value)
+{
+    ++owner_state.live_values;
+}
+
+template <bool Throws>
+VectorReserveMoveOnly<Throws>::VectorReserveMoveOnly(
+    VectorReserveMoveOnly&& other) noexcept(!Throws)
+    : state(other.state), value(other.value)
+{
+    if constexpr (Throws)
+    {
+        state->MaybeThrowConstruction();
+    }
+    other.value = -1;
+    ++state->live_values;
+    ++state->moves;
+}
+
+template <bool Throws>
+VectorReserveMoveOnly<Throws>::~VectorReserveMoveOnly()
+{
+    --state->live_values;
+}
+
+void CheckReserveMoveOnly()
+{
+    using Allocator = VectorAssignmentAllocator<VectorReserveMoveOnly<false>>;
+    using Vector = nuostl::nuo_vector<VectorReserveMoveOnly<false>, Allocator>;
+    VectorAssignmentState state;
+    {
+        Vector values(Allocator(state, 11));
+        values.reserve(3);
+        values.emplace_back(state, 1);
+        values.emplace_back(state, 2);
+        values.emplace_back(state, 3);
+        const auto moves_before = state.moves;
+        values.reserve(8);
+        NUO_TEST_CHECK(values.capacity() >= 8);
+        NUO_TEST_CHECK(values.size() == 3);
+        NUO_TEST_CHECK(state.moves == moves_before + 3);
+        for (std::size_t i = 0; i < values.size(); ++i)
+        {
+            NUO_TEST_CHECK(values[i].value == static_cast<int>(i + 1));
+        }
+        CheckAssignmentStorage(values, state);
+        NUO_TEST_CHECK(values.get_allocator().owner == 11);
+    }
+    state.CheckReleased();
+}
+
+void CheckReserveThrowingMoveOnly(int successful_constructions,
+                                  bool nonstandard_exception)
+{
+    using Allocator =
+        VectorAssignmentAllocator<VectorReserveMoveOnly<true>>;
+    using Vector =
+        nuostl::nuo_vector<VectorReserveMoveOnly<true>, Allocator>;
+    VectorAssignmentState state;
+    {
+        Vector values(Allocator(state, 8));
+        values.reserve(3);
+        values.emplace_back(state, 1);
+        values.emplace_back(state, 2);
+        values.emplace_back(state, 3);
+        const auto original_capacity = values.capacity();
+        const bool caught = RunVectorFailureProbe(
+            state, successful_constructions, false, nonstandard_exception,
+            [&values, original_capacity]
+            {
+                values.reserve(original_capacity + 4);
+            });
+        NUO_TEST_CHECK(caught);
+        NUO_TEST_CHECK(values.size() <= values.max_size());
+        NUO_TEST_CHECK(values.capacity() >= values.size());
+        CheckAssignmentStorage(values, state);
+        NUO_TEST_CHECK(values.get_allocator().owner == 8);
     }
     state.CheckReleased();
 }
@@ -967,6 +1262,31 @@ void Test_Nuo_Vector::TestInitializerListAssignment()
         }
     }
     CheckInitializerListAssignmentFailure(0, true, false);
+}
+
+void Test_Nuo_Vector::TestReserveSafety()
+{
+    CheckReserveEmptyAndLimits();
+    CheckReserveOversizedNonEmpty();
+    CheckReserveSuccess();
+    for (int successful_constructions : {0, 1, 2})
+    {
+        for (bool nonstandard_exception : {false, true})
+        {
+            CheckReserveFailure(successful_constructions, false,
+                                nonstandard_exception);
+        }
+    }
+    CheckReserveFailure(0, true, false);
+    CheckReserveMoveOnly();
+    for (int successful_constructions : {0, 1, 2})
+    {
+        for (bool nonstandard_exception : {false, true})
+        {
+            CheckReserveThrowingMoveOnly(successful_constructions,
+                                         nonstandard_exception);
+        }
+    }
 }
 
 void Test_Nuo_Vector::TestShrinkLifetime()
@@ -2115,6 +2435,7 @@ void Test_Nuo_Vector::test_nuo_vector()
     TestConstructionCleanup();
     TestAssignmentOwnership();
     TestInitializerListAssignment();
+    TestReserveSafety();
     TestShrinkLifetime();
     /* test correctness */
     test_constructor();

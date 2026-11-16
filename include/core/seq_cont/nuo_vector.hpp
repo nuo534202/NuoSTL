@@ -1,5 +1,6 @@
 #pragma once
 
+#include <cassert>
 #include <compare>
 #include <memory>
 #include <initializer_list>
@@ -720,6 +721,67 @@ public:
     }
 
 private:
+    constexpr void DestroyElements(pointer data, size_t count) noexcept
+    {
+        for (size_t i = 0; i < count; ++i)
+        {
+            std::allocator_traits<Allocator>::destroy(_alloc, data + i);
+        }
+    }
+
+    constexpr void RelocateElements(pointer source,
+                                    size_t count,
+                                    pointer destination)
+    {
+        /* Allocator hooks must observe every relocation constructor. */
+        size_t relocated = 0;
+        try
+        {
+            for (; relocated < count; ++relocated)
+            {
+                std::allocator_traits<Allocator>::construct(
+                    _alloc, destination + relocated,
+                    std::move_if_noexcept(source[relocated]));
+            }
+        }
+        catch (...)
+        {
+            DestroyElements(destination, relocated);
+            throw;
+        }
+    }
+
+    /* A failed relocation of move-only elements with throwing moves may leave
+       those elements moved from, while the vector retains its old storage. */
+    constexpr void ReallocateElements(size_t new_capacity)
+    {
+        assert(new_capacity >= _size);
+        if (new_capacity > max_size())
+            throw std::length_error(
+                "nuo_vector: new capacity exceeds max_size");
+        pointer new_data =
+            std::allocator_traits<Allocator>::allocate(_alloc, new_capacity);
+        try
+        {
+            RelocateElements(_data, _size, new_data);
+        }
+        catch (...)
+        {
+            std::allocator_traits<Allocator>::deallocate(
+                _alloc, new_data, new_capacity);
+            throw;
+        }
+
+        DestroyElements(_data, _size);
+        if (_data != nullptr)
+        {
+            std::allocator_traits<Allocator>::deallocate(
+                _alloc, _data, _capacity);
+        }
+        _data = new_data;
+        _capacity = new_capacity;
+    }
+
     constexpr void ReleaseStorage() noexcept
     {
         clear();
@@ -905,34 +967,8 @@ public:
     {
         if (_capacity >= n)
             return;
-        
-        size_t new_capacity = n;
 
-        pointer new_data = std::allocator_traits<Allocator>::allocate(_alloc, new_capacity);
-
-        idx_t i = 0;
-        try
-        {
-            for (; i < _size; i++)
-            {
-                std::allocator_traits<Allocator>::construct(_alloc, new_data + i, _data[i]);
-                std::allocator_traits<Allocator>::destroy(_alloc, _data + i);
-            }
-        }
-        catch (const std::exception& e)
-        {
-            for (idx_t j = 0; j < i; j++)
-                std::allocator_traits<Allocator>::destroy(_alloc, new_data + j);
-            
-            std::allocator_traits<Allocator>::deallocate(_alloc, new_data, new_capacity);
-            new_data = nullptr;
-            std::cerr << e.what() << std::endl;
-            throw;
-        }
-
-        std::allocator_traits<Allocator>::deallocate(_alloc, _data, _capacity);
-        _data = new_data, new_data = nullptr;
-        _capacity = new_capacity;
+        ReallocateElements(n);
     }
 
     constexpr void shrink_to_fit()
@@ -954,34 +990,7 @@ public:
             return;
         }
 
-        pointer new_data = std::allocator_traits<Allocator>::allocate(_alloc, new_capacity);
-
-        idx_t i = 0;
-        try
-        {
-            for (; i < _size; i++)
-            {
-                std::allocator_traits<Allocator>::construct(
-                    _alloc, new_data + i, std::move_if_noexcept(_data[i]));
-            }
-        }
-        catch (...)
-        {
-            for (idx_t j = 0; j < i; j++)
-            {
-                std::allocator_traits<Allocator>::destroy(_alloc, new_data + j);
-            }
-            std::allocator_traits<Allocator>::deallocate(_alloc, new_data, new_capacity);
-            throw;
-        }
-
-        for (idx_t index = 0; index < _size; ++index)
-        {
-            std::allocator_traits<Allocator>::destroy(_alloc, _data + index);
-        }
-        std::allocator_traits<Allocator>::deallocate(_alloc, _data, _capacity);
-        _data = new_data;
-        _capacity = new_capacity;
+        ReallocateElements(new_capacity);
     }
 
 
@@ -1742,8 +1751,7 @@ public:
 
     constexpr void clear() noexcept
     {
-        for (idx_t i = 0; i < _size; i++)
-            std::allocator_traits<Allocator>::destroy(_alloc, _data + i);
+        DestroyElements(_data, _size);
         _size = 0;
     }
 };
