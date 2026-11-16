@@ -1187,40 +1187,20 @@ public:
     template <std::ranges::input_range R>
     constexpr void append_range(R &&rg)
     {
-        difference_type n;
         if constexpr (std::ranges::sized_range<R>)
-            n = std::ranges::size(rg);
-        else
-            n = std::ranges::distance(rg);
-
-        if (_size >= _capacity)
         {
-            size_t new_capacity =
-                _capacity ? ((_size + _capacity + n - 1) / _capacity * _capacity) : n;
-            reserve(new_capacity);
+            const size_t n = static_cast<size_t>(std::ranges::size(rg));
+            if (n > max_size() - _size)
+                throw std::length_error(
+                    "nuo_vector: append exceeds max_size");
+            if (n > _capacity - _size)
+                reserve(_size + n);
         }
 
-        idx_t i = _size;
-        try
+        for (auto &&element : rg)
         {
-            auto first = std::ranges::begin(rg), last = std::ranges::end(rg);
-            for (auto it = first; i < _size + n && it != last; i++, it++)
-                std::allocator_traits<Allocator>::construct(_alloc, _data + i, *it);
-                
+            emplace_back(std::forward<decltype(element)>(element));
         }
-        catch(const std::exception& e)
-        {
-            for (idx_t j = 0; j < i; j++)
-                std::allocator_traits<Allocator>::destroy(_alloc, _data + j);
-
-            std::allocator_traits<Allocator>::deallocate(_alloc, _data, _capacity);
-            _size = _capacity = 0;
-            _data = nullptr;
-            std::cerr << e.what() << std::endl;
-            throw;
-        }
-
-        _size += n;
     }
 
     constexpr void pop_back()
@@ -1314,8 +1294,29 @@ public:
                 std::cerr << e.what() << std::endl;
                 throw;
             }
+
+            try
+            {
+                std::allocator_traits<Allocator>::construct(
+                    _alloc, _data + pos, std::forward<Args>(args)...);
+            }
+            catch(const std::exception& e)
+            {
+                for (idx_t j = 0; j < pos; ++j)
+                    std::allocator_traits<Allocator>::destroy(_alloc, _data + j);
+                for (idx_t j = pos + 1; j <= _size; ++j)
+                    std::allocator_traits<Allocator>::destroy(_alloc, _data + j);
+
+                std::allocator_traits<Allocator>::deallocate(
+                    _alloc, _data, _capacity);
+                _size = _capacity = 0;
+                _data = nullptr;
+                std::cerr << e.what() << std::endl;
+                throw;
+            }
         }
 
+        ++_size;
         return _data + pos;
     }
 
@@ -1421,11 +1422,13 @@ public:
     {
         difference_type pos = position - _data;
 
-        if (_size + n >= _capacity)
+        if (n == 0)
+            return _data + pos;
+        if (n > max_size() - _size)
+            throw std::length_error("nuo_vector: insert exceeds max_size");
+        if (n > _capacity - _size)
         {
-            size_t new_capacity =
-                _capacity > 0 ? (_size + _capacity + n - 1) / _capacity * _capacity : n;
-            reserve(new_capacity);
+            reserve(_size + n);
         }
 
         if constexpr (std::is_copy_assignable_v<T> || std::is_move_assignable_v<T>)
@@ -1467,11 +1470,12 @@ public:
         }
         else
         {
-            idx_t i = _size - 1;
+            idx_t i = _size;
             try
             {
-                for (; i > pos; i--)
+                while (i > pos)
                 {
+                    --i;
                     std::allocator_traits<Allocator>::construct(_alloc, _data + i + n, _data[i]);
                     std::allocator_traits<Allocator>::destroy(_alloc, _data + i);
                 }
@@ -1525,73 +1529,23 @@ public:
     >
     constexpr iterator insert(const_iterator position, InputIter first, InputIter last)
     {
-        if (first >= last)
-            throw std::length_error("nuo_vector: first is smaller or equal to last");
-
-        difference_type n = std::distance(first, last), pos = position - _data;
-
-        if (_size >= _capacity)
-        {
-            size_t new_capacity =
-                _capacity ? ((_size + _capacity + n - 1) / _capacity * _capacity) : n;
-            reserve(new_capacity);
-        }
-
-        idx_t i = _size;
-        try
-        {
-            for (;i > pos; i--)
-            {
-                std::allocator_traits<Allocator>::construct(_alloc, _data + i + n - 1, _data[i - 1]);
-                std::allocator_traits<Allocator>::destroy(_alloc, _data + i - 1);
-            }
-        }
-        catch(const std::exception& e)
-        {
-            for (idx_t j = 0; j < i - 1; j++)
-                std::allocator_traits<Allocator>::destroy(_alloc, _data + j);
-            
-            for (idx_t j = _size + n - 1; j > _size + i - 1; j--)
-                std::allocator_traits<Allocator>::destroy(_alloc, _data + j);
-            
-            std::allocator_traits<Allocator>::deallocate(_alloc, _data, _capacity);
-
-            _size = _capacity = 0;
-            _data = nullptr;
-            std::cerr << e.what() << std::endl;
-            throw;
-        }
-
-        i = pos;
-        try
-        {
-            for (InputIter it = first; it != last && i < pos + n; it++, i++)
-                std::allocator_traits<Allocator>::construct(_alloc, _data + i, *it);
-        }
-        catch(const std::exception& e)
-        {
-            for (idx_t j = 0; j < i; j++)
-                std::allocator_traits<Allocator>::destroy(_alloc, _data + j);
-            
-            for (idx_t j = _size + n - 1; j >= _size + pos; j--)
-                std::allocator_traits<Allocator>::destroy(_alloc, _data + j);
-            
-            std::allocator_traits<Allocator>::deallocate(_alloc, _data, _capacity);
-
-            _size = _capacity = 0;
-            _data = nullptr;
-            std::cerr << e.what() << std::endl;
-            throw;
-        }
-        
-        _size += n;
-
-        return _data + pos;
+        nuo_vector buffer(_alloc);
+        for (; first != last; ++first)
+            buffer.emplace_back(*first);
+        return insert_range(position, buffer);
     }
 
     template <std::ranges::input_range R>
     constexpr iterator insert_range(const_iterator position, R &&rg)
     {
+        if constexpr (!std::ranges::forward_range<R>)
+        {
+            nuo_vector buffer(_alloc);
+            for (auto &&element : rg)
+                buffer.emplace_back(std::forward<decltype(element)>(element));
+            return insert_range(position, buffer);
+        }
+
         difference_type n;
         if constexpr (std::ranges::sized_range<R>)
             n = std::ranges::size(rg);
@@ -1600,11 +1554,16 @@ public:
 
         difference_type pos = position - _data;
 
-        if (_size + n > _capacity)
+        if (n < 0)
+            throw std::length_error("nuo_vector: insert has negative range");
+        const size_t count = static_cast<size_t>(n);
+        if (count == 0)
+            return _data + pos;
+        if (count > max_size() - _size)
+            throw std::length_error("nuo_vector: insert exceeds max_size");
+        if (count > _capacity - _size)
         {
-            size_t new_capacity =
-                _capacity ? ((_size + _capacity + n - 1) / _capacity * _capacity) : n;
-            reserve(new_capacity);
+            reserve(_size + count);
         }
 
         idx_t i = _size;

@@ -7,6 +7,9 @@
 #include <cstddef>
 #include <initializer_list>
 #include <iostream>
+#include <iterator>
+#include <ranges>
+#include <sstream>
 #include <vector>
 #include <memory>
 #include <stdexcept>
@@ -775,6 +778,18 @@ struct VectorReserveMoveOnly
     int value;
 };
 
+struct VectorNonAssignableValue
+{
+    explicit VectorNonAssignableValue(int value) : value(value) {}
+    VectorNonAssignableValue(const VectorNonAssignableValue&) = default;
+    VectorNonAssignableValue(VectorNonAssignableValue&&) = default;
+    VectorNonAssignableValue& operator=(const VectorNonAssignableValue&) =
+        delete;
+    VectorNonAssignableValue& operator=(VectorNonAssignableValue&&) = delete;
+
+    int value;
+};
+
 template <bool Throws>
 VectorReserveMoveOnly<Throws>::VectorReserveMoveOnly(
     VectorAssignmentState& owner_state, int value)
@@ -1286,6 +1301,115 @@ void Test_Nuo_Vector::TestReserveSafety()
             CheckReserveThrowingMoveOnly(successful_constructions,
                                          nonstandard_exception);
         }
+    }
+}
+
+void Test_Nuo_Vector::TestMutationMath()
+{
+    {
+        nuostl::nuo_vector<int> values;
+        values.reserve(8);
+        auto inserted = values.emplace(values.begin(), 42);
+        NUO_TEST_CHECK(inserted == values.begin());
+        NUO_TEST_CHECK(values.size() == 1 && values[0] == 42);
+        inserted = values.emplace(values.end(), 43);
+        NUO_TEST_CHECK(inserted == values.begin() + 1);
+        NUO_TEST_CHECK(values.size() == 2 && values[1] == 43);
+        inserted = values.emplace(values.begin() + 1, 44);
+        NUO_TEST_CHECK(inserted == values.begin() + 1);
+        NUO_TEST_CHECK(values.size() == 3);
+        NUO_TEST_CHECK(values[0] == 42 && values[1] == 44 && values[2] == 43);
+    }
+
+    {
+        nuostl::nuo_vector<VectorNonAssignableValue> values;
+        values.reserve(4);
+        VectorNonAssignableValue seed(7);
+        auto inserted = values.insert(values.begin(), 3, seed);
+        NUO_TEST_CHECK(inserted == values.begin());
+        NUO_TEST_CHECK(values.size() == 3);
+        for (const auto& value : values)
+        {
+            NUO_TEST_CHECK(value.value == 7);
+        }
+    }
+
+    {
+        nuostl::nuo_vector<VectorNonAssignableValue> values;
+        values.reserve(4);
+        auto inserted = values.emplace(values.begin(), 9);
+        NUO_TEST_CHECK(inserted == values.begin());
+        NUO_TEST_CHECK(values.size() == 1 && values[0].value == 9);
+        inserted = values.emplace(values.end(), 10);
+        NUO_TEST_CHECK(inserted == values.begin() + 1);
+        inserted = values.emplace(values.begin() + 1, 11);
+        NUO_TEST_CHECK(inserted == values.begin() + 1);
+        NUO_TEST_CHECK(values.size() == 3);
+        NUO_TEST_CHECK(values[0].value == 9 && values[1].value == 11 &&
+                       values[2].value == 10);
+    }
+
+    {
+        const int inserted_values[] = {3, 4, 5};
+        nuostl::nuo_vector<int> values;
+        values.push_back(1);
+        values.push_back(2);
+        values.reserve(4);
+        auto inserted = values.insert(
+            values.end(), inserted_values, inserted_values + 3);
+        NUO_TEST_CHECK(inserted == values.begin() + 2);
+        NUO_TEST_CHECK(values.size() == 5);
+        for (int index = 0; index < 5; ++index)
+        {
+            NUO_TEST_CHECK(values[index] == index + 1);
+        }
+    }
+
+    {
+        const int appended_values[] = {3, 4, 5};
+        nuostl::nuo_vector<int> values{1, 2};
+        values.reserve(4);
+        values.append_range(appended_values);
+        NUO_TEST_CHECK(values.size() == 5);
+        for (int index = 0; index < 5; ++index)
+        {
+            NUO_TEST_CHECK(values[index] == index + 1);
+        }
+    }
+
+    {
+        std::istringstream stream("6 7 8");
+        auto input = std::ranges::istream_view<int>(stream);
+        nuostl::nuo_vector<int> values{1, 2, 3};
+        values.reserve(4);
+        values.append_range(input);
+        NUO_TEST_CHECK(values.size() == 6);
+        const int expected[] = {1, 2, 3, 6, 7, 8};
+        for (int index = 0; index < 6; ++index)
+            NUO_TEST_CHECK(values[index] == expected[index]);
+    }
+
+    {
+        std::istringstream stream("9 10");
+        auto first = std::istream_iterator<int>(stream);
+        auto last = std::istream_iterator<int>();
+        nuostl::nuo_vector<int> values{1, 2, 3};
+        values.reserve(4);
+        auto inserted = values.insert(values.begin() + 1, first, last);
+        NUO_TEST_CHECK(inserted == values.begin() + 1);
+        NUO_TEST_CHECK(values.size() == 5);
+        const int expected[] = {1, 9, 10, 2, 3};
+        for (int index = 0; index < 5; ++index)
+            NUO_TEST_CHECK(values[index] == expected[index]);
+    }
+
+    {
+        std::vector<std::string> empty;
+        nuostl::nuo_vector<std::string> values{"left", "right"};
+        auto inserted = values.insert_range(values.begin() + 1, empty);
+        NUO_TEST_CHECK(inserted == values.begin() + 1);
+        NUO_TEST_CHECK(values.size() == 2);
+        NUO_TEST_CHECK(values[0] == "left" && values[1] == "right");
     }
 }
 
@@ -2436,6 +2560,7 @@ void Test_Nuo_Vector::test_nuo_vector()
     TestAssignmentOwnership();
     TestInitializerListAssignment();
     TestReserveSafety();
+    TestMutationMath();
     TestShrinkLifetime();
     /* test correctness */
     test_constructor();

@@ -13,6 +13,7 @@ private:
     static void TestAssignmentOwnership();
     static void TestInitializerListAssignment();
     static void TestReserveSafety();
+    static void TestMutationMath();
     static void test_destructor();
     
     static void test_operator_assign();
