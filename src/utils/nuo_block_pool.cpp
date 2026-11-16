@@ -1,6 +1,7 @@
 #include "utils/nuo_block_pool.hpp"
 
 #include <atomic>
+#include <memory>
 #include <new>
 
 namespace nuostl
@@ -108,15 +109,21 @@ void NuoBlockPool::Grow()
     throw std::bad_alloc();
   }
   const size_t bytes = block_size_ * blocks_per_chunk_;
-  void* memory = AllocateBytes(bytes, block_alignment_);
+  const auto memory_deleter = [this](void* memory)
+  {
+    DeallocateBytes(memory, block_alignment_);
+  };
+  std::unique_ptr<void, decltype(memory_deleter)> memory_owner(
+    AllocateBytes(bytes, block_alignment_), memory_deleter);
+  std::unique_ptr<Chunk> chunk_owner(new Chunk);
+  chunk_owner->memory = memory_owner.release();
+  chunk_owner->next = chunks_;
 
-  Chunk* chunk = static_cast<Chunk*>(::operator new(sizeof(Chunk)));
-  chunk->memory = memory;
-  chunk->next = chunks_;
+  Chunk* chunk = chunk_owner.release();
   chunks_ = chunk;
   ++chunk_count_;
 
-  unsigned char* cursor = static_cast<unsigned char*>(memory);
+  unsigned char* cursor = static_cast<unsigned char*>(chunk->memory);
   for (size_t index = 0; index < blocks_per_chunk_; ++index)
   {
     void* block = cursor + index * block_size_;
