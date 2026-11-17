@@ -1,5 +1,6 @@
 #pragma once
 
+#include <memory>
 #include <stddef.h>
 #include <type_traits>
 #include <utility>
@@ -311,8 +312,9 @@ public:
   }
 
   pointer operator->() const
+    requires std::is_lvalue_reference_v<reference>
   {
-    return &(operator*());
+    return std::addressof(operator*());
   }
 
   self& operator++()

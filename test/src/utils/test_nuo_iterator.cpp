@@ -2,6 +2,8 @@
 
 #include <array>
 #include <cstddef>
+#include <cstdint>
+#include <memory>
 #include <type_traits>
 #include <utility>
 
@@ -9,6 +11,7 @@
 #include "core/seq_cont/nuo_list.hpp"
 #include "test_framework.hpp"
 #include "test_input_iterator.hpp"
+#include "utils/nuo_destroy.hpp"
 #include "utils/nuo_iterator.hpp"
 #include "utils/nuo_util.hpp"
 
@@ -17,6 +20,92 @@ namespace test
 
 namespace
 {
+
+template <typename Iterator, typename = void>
+struct HasArrowOperator : public std::false_type
+{
+};
+
+template <typename Iterator>
+struct HasArrowOperator<
+  Iterator,
+  std::void_t<decltype(std::declval<Iterator>().operator->())>>
+  : public std::true_type
+{
+};
+
+struct AddressHijackedValue
+{
+  static inline int destroyed = 0;
+  static inline int address_taken = 0;
+
+  explicit AddressHijackedValue(int value) : value(value) {}
+  ~AddressHijackedValue()
+  {
+    ++destroyed;
+  }
+
+  AddressHijackedValue* operator&() noexcept
+  {
+    ++address_taken;
+    return reinterpret_cast<AddressHijackedValue*>(
+      static_cast<std::uintptr_t>(1));
+  }
+
+  const AddressHijackedValue* operator&() const noexcept
+  {
+    ++address_taken;
+    return reinterpret_cast<const AddressHijackedValue*>(
+      static_cast<std::uintptr_t>(1));
+  }
+
+  int value;
+};
+
+struct AddressHijackedIterator
+{
+  using iterator_category = nuostl::NuoRandomAccessIteratorTag;
+  using value_type        = AddressHijackedValue;
+  using pointer           = AddressHijackedValue*;
+  using reference         = AddressHijackedValue&;
+  using difference_type   = std::ptrdiff_t;
+
+  AddressHijackedValue& operator*() const
+  {
+    return *position;
+  }
+
+  AddressHijackedIterator& operator--()
+  {
+    --position;
+    return *this;
+  }
+
+  AddressHijackedValue* position;
+};
+
+struct ProxyReference
+{
+};
+
+struct ProxyIterator
+{
+  using iterator_category = nuostl::NuoRandomAccessIteratorTag;
+  using value_type        = int;
+  using pointer           = int*;
+  using reference         = ProxyReference;
+  using difference_type   = std::ptrdiff_t;
+
+  ProxyReference operator*() const
+  {
+    return ProxyReference{};
+  }
+
+  ProxyIterator& operator--()
+  {
+    return *this;
+  }
+};
 
 struct ReverseLeftIterator
 {
@@ -465,6 +554,10 @@ struct HasReverseComparison<ReverseComparison::kGreaterEqual,
 using MutableReverseIterator = nuostl::NuoReverseIterator<int*>;
 using ConstReverseIterator = nuostl::NuoReverseIterator<const int*>;
 using ListIterator = nuostl::NuoListIterator<int>;
+using ProxyReverseIterator = nuostl::NuoReverseIterator<ProxyIterator>;
+static_assert(HasArrowOperator<MutableReverseIterator>::value);
+static_assert(HasArrowOperator<ConstReverseIterator>::value);
+static_assert(!HasArrowOperator<ProxyReverseIterator>::value);
 static_assert(noexcept(std::declval<MutableReverseIterator>() ==
                        std::declval<ConstReverseIterator>()));
 static_assert(noexcept(std::declval<MutableReverseIterator>() -
@@ -682,6 +775,26 @@ void TestNuoIterator::TestReverseIteratorOperators()
   nuostl::NuoReverseIterator<ReversedLessRightIterator> reversed_less_right(
       ReversedLessRightIterator{1});
   NUO_TEST_CHECK(reversed_less_left < reversed_less_right);
+
+  AddressHijackedValue::destroyed = 0;
+  AddressHijackedValue::address_taken = 0;
+  std::array<AddressHijackedValue, 2> hijacked_values = {
+    AddressHijackedValue(3), AddressHijackedValue(4)};
+  nuostl::NuoReverseIterator<AddressHijackedIterator> hijacked_reverse(
+    AddressHijackedIterator{hijacked_values.data() + 2});
+  NUO_TEST_CHECK(hijacked_reverse->value == 4);
+  NUO_TEST_CHECK(AddressHijackedValue::address_taken == 0);
+
+  std::allocator<AddressHijackedValue> allocator;
+  using AllocatorTraits = std::allocator_traits<
+    std::allocator<AddressHijackedValue>>;
+  AddressHijackedValue* destroy_values = allocator.allocate(2);
+  AllocatorTraits::construct(allocator, destroy_values, 5);
+  AllocatorTraits::construct(allocator, destroy_values + 1, 6);
+  nuostl::NuoDestroy(destroy_values, destroy_values + 2);
+  NUO_TEST_CHECK(AddressHijackedValue::destroyed == 2);
+  NUO_TEST_CHECK(AddressHijackedValue::address_taken == 0);
+  allocator.deallocate(destroy_values, 2);
 }
 
 void TestNuoIterator::TestSinglePassCursor()
